@@ -139,7 +139,7 @@ def review(db_path: Path) -> None:
             qid, details = current
             _render(qid, details, candidates.count_pending(con))
             action = Prompt.ask(
-                "[bold]\\[a][/]ccept  \\[d][/]iscard  \\[q][/]uit",
+                "[bold]\\[a][/]ccept  [bold]\\[d][/]iscard  [bold]\\[q][/]uit",
                 choices=["a", "d", "q"],
             )
             if action == "q":
