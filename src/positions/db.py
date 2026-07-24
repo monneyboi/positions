@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS entity (
     aliases JSON,
     en_label TEXT,
     en_description TEXT,
+    lastrevid BIGINT NOT NULL,       -- Wikidata revision of the synced entity
     is_position BOOLEAN NOT NULL DEFAULT FALSE,  -- in the P39-value universe
     synced_at TIMESTAMP NOT NULL DEFAULT now()
 );
@@ -67,14 +68,16 @@ def upsert_entity(con: duckdb.DuckDBPyConnection, parsed: dict, is_position: boo
     con.execute(
         """
         INSERT INTO entity (qid, labels, descriptions, aliases,
-                            en_label, en_description, is_position, synced_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, now())
+                            en_label, en_description, lastrevid,
+                            is_position, synced_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, now())
         ON CONFLICT (qid) DO UPDATE SET
             labels = excluded.labels,
             descriptions = excluded.descriptions,
             aliases = excluded.aliases,
             en_label = excluded.en_label,
             en_description = excluded.en_description,
+            lastrevid = excluded.lastrevid,
             is_position = entity.is_position OR excluded.is_position,
             synced_at = excluded.synced_at
         """,
@@ -85,6 +88,7 @@ def upsert_entity(con: duckdb.DuckDBPyConnection, parsed: dict, is_position: boo
             json.dumps(parsed["aliases"]),
             parsed["labels"].get("en"),
             parsed["descriptions"].get("en"),
+            parsed["lastrevid"],
             is_position,
         ],
     )
@@ -92,5 +96,8 @@ def upsert_entity(con: duckdb.DuckDBPyConnection, parsed: dict, is_position: boo
     if claims:
         con.executemany(
             "INSERT INTO claim (subject, property, value, value_type, rank) VALUES (?, ?, ?, ?, ?)",
-            [(parsed["qid"], prop, val, vtype, rank) for prop, val, vtype, rank in claims],
+            [
+                (parsed["qid"], prop, val, vtype, rank)
+                for prop, val, vtype, rank in claims
+            ],
         )

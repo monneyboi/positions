@@ -6,8 +6,8 @@ see research.md for the WDQS originals and the reasoning behind each.
 """
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import duckdb
 
@@ -120,11 +120,31 @@ def list_valued(con):
 CHECKS: dict[str, Check] = {
     c.name: c
     for c in [
-        Check("jurisdiction-backfill", "P17/P1001 inheritable from P361 body (research.md §3)", jurisdiction_backfill),
-        Check("missing-p279", "Public offices without subclass of (research.md §5)", missing_p279),
-        Check("missing-en-label", "Public offices without English label (research.md §6)", missing_en_label),
-        Check("missing-en-description", "Public offices without English description (research.md §6)", missing_en_description),
-        Check("list-valued", "Wikimedia list items used as positions (research.md §7)", list_valued),
+        Check(
+            "jurisdiction-backfill",
+            "P17/P1001 inheritable from P361 body (research.md §3)",
+            jurisdiction_backfill,
+        ),
+        Check(
+            "missing-p279",
+            "Public offices without subclass of (research.md §5)",
+            missing_p279,
+        ),
+        Check(
+            "missing-en-label",
+            "Public offices without English label (research.md §6)",
+            missing_en_label,
+        ),
+        Check(
+            "missing-en-description",
+            "Public offices without English description (research.md §6)",
+            missing_en_description,
+        ),
+        Check(
+            "list-valued",
+            "Wikimedia list items used as positions (research.md §7)",
+            list_valued,
+        ),
     ]
 }
 

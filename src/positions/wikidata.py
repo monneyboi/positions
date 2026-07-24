@@ -1,7 +1,7 @@
 """Wikidata entity API client (wbgetentities batches)."""
 
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 import httpx
 
@@ -14,31 +14,31 @@ BATCH_SIZE = 50  # wbgetentities max
 # the local model should support checks we haven't thought of yet.
 KEEP_CLAIMS = {
     # classification
-    "P31",   # instance of
+    "P31",  # instance of
     "P279",  # subclass of
     # jurisdiction / structure
-    "P17",   # country
-    "P1001", # applies to jurisdiction
+    "P17",  # country
+    "P1001",  # applies to jurisdiction
     "P361",  # part of
     "P527",  # has part(s)
     "P749",  # parent organization
-    "P2389", # organization directed by the office or position
+    "P2389",  # organization directed by the office or position
     # lifecycle
     "P571",  # inception
     "P576",  # dissolved/abolished
-    "P1365", # replaces
-    "P1366", # replaced by
+    "P1365",  # replaces
+    "P1366",  # replaced by
     # holders & government
-    "P1308", # position holder
-    "P6",    # head of government
-    "P35",   # head of state
+    "P1308",  # position holder
+    "P6",  # head of government
+    "P35",  # head of state
     "P194",  # legislative body
     # govdirectory
-    "P9798", # COFOG
+    "P9798",  # COFOG
     "P856",  # official website
     # meta
     "P910",  # topic's main category
-    "P6104", # maintained by WikiProject
+    "P6104",  # maintained by WikiProject
 }
 
 
@@ -89,6 +89,7 @@ def parse_entity(entity: dict) -> dict:
                 claims.append((prop, t, "time", rank))
     return {
         "qid": entity["id"],
+        "lastrevid": entity["lastrevid"],
         "labels": labels,
         "descriptions": descriptions,
         "aliases": aliases,
@@ -96,7 +97,11 @@ def parse_entity(entity: dict) -> dict:
     }
 
 
-def fetch_entities(qids: Iterable[str], batch_size: int = BATCH_SIZE):
+def fetch_entities(
+    qids: Iterable[str],
+    batch_size: int = BATCH_SIZE,
+    on_retry: Callable[[str], None] | None = None,
+):
     """Yield parsed entities for qids, in wbgetentities batches."""
     batch: list[str] = []
     with httpx.Client(
@@ -105,13 +110,18 @@ def fetch_entities(qids: Iterable[str], batch_size: int = BATCH_SIZE):
         for qid in qids:
             batch.append(qid)
             if len(batch) >= batch_size:
-                yield from _fetch_batch(client, batch)
+                yield from _fetch_batch(client, batch, on_retry=on_retry)
                 batch = []
         if batch:
-            yield from _fetch_batch(client, batch)
+            yield from _fetch_batch(client, batch, on_retry=on_retry)
 
 
-def _fetch_batch(client: httpx.Client, batch: list[str], retries: int = 5):
+def _fetch_batch(
+    client: httpx.Client,
+    batch: list[str],
+    retries: int = 5,
+    on_retry: Callable[[str], None] | None = None,
+):
     for attempt in range(retries):
         try:
             resp = client.get(
@@ -119,7 +129,7 @@ def _fetch_batch(client: httpx.Client, batch: list[str], retries: int = 5):
                 params={
                     "action": "wbgetentities",
                     "ids": "|".join(batch),
-                    "props": "labels|descriptions|aliases|claims",
+                    "props": "info|labels|descriptions|aliases|claims",
                     "format": "json",
                     "formatversion": "2",
                 },
@@ -135,6 +145,12 @@ def _fetch_batch(client: httpx.Client, batch: list[str], retries: int = 5):
                 if "missing" not in entity:
                     yield parse_entity(entity)
             return
-        except httpx.HTTPError:
-            time.sleep(min(2**attempt * 2, 60))
+        except httpx.HTTPError as e:
+            wait = min(2**attempt * 2, 60)
+            if on_retry is not None:
+                on_retry(
+                    f"Wikidata API batch {batch[0]}: request "
+                    f"{attempt + 1}/{retries} failed ({e}); retrying in {wait}s"
+                )
+            time.sleep(wait)
     raise RuntimeError(f"wbgetentities failed for batch starting {batch[0]}")

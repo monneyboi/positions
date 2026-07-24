@@ -1,7 +1,6 @@
 """positions CLI."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -19,7 +18,7 @@ DbOption = typer.Option(Path("positions.duckdb"), "--db", help="DuckDB file path
 
 @app.command()
 def sync(
-    limit: Optional[int] = typer.Option(None, help="Limit universe size (for testing)."),
+    limit: int | None = typer.Option(None, help="Limit universe size (for testing)."),
     db: Path = DbOption,
 ):
     """Sync the local world model from WDQS + the Wikidata API."""
@@ -28,19 +27,17 @@ def sync(
 
 @app.command(name="check")
 def check(
-    name: Optional[str] = typer.Argument(None, help="Check to run (default: all)."),
+    name: str | None = typer.Argument(None, help="Check to run (default: all)."),
     db: Path = DbOption,
 ):
     """Run audit checks and refresh review queues."""
     con = dbmod.connect(db)
-    selected = (
-        {name: checksmod.CHECKS[name]}
-        if name
-        else checksmod.CHECKS
-    )
     if name and name not in checksmod.CHECKS:
-        console.print(f"[red]Unknown check '{name}'. Available: {', '.join(checksmod.CHECKS)}")
+        console.print(
+            f"[red]Unknown check '{name}'. Available: {', '.join(checksmod.CHECKS)}"
+        )
         raise typer.Exit(1)
+    selected = {name: checksmod.CHECKS[name]} if name else checksmod.CHECKS
 
     table = Table("check", "queue size", "description")
     for cname, c in selected.items():
@@ -64,7 +61,9 @@ def show(qid: str, db: Path = DbOption):
     if row[2]:
         console.print(f"  {row[2]}")
     if row[3]:
-        links = con.execute("SELECT links FROM position WHERE qid = ?", [qid.upper()]).fetchone()
+        links = con.execute(
+            "SELECT links FROM position WHERE qid = ?", [qid.upper()]
+        ).fetchone()
         console.print(f"  in P39 universe with {links[0]} truthy links")
     claims = con.execute(
         "SELECT property, value, rank FROM claim WHERE subject = ? ORDER BY property",
@@ -72,7 +71,9 @@ def show(qid: str, db: Path = DbOption):
     ).fetchall()
     table = Table("property", "value", "rank")
     for prop, val, rank in claims:
-        label = con.execute("SELECT en_label FROM entity WHERE qid = ?", [val]).fetchone()
+        label = con.execute(
+            "SELECT en_label FROM entity WHERE qid = ?", [val]
+        ).fetchone()
         table.add_row(prop, f"{val} {label[0] if label and label[0] else ''}", rank)
     console.print(table)
 
