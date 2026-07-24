@@ -1,0 +1,6 @@
+*.duckdb
+*.duckdb.wal
+__pycache__/
+.venv/
+dist/
+*.egg-info/
