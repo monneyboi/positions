@@ -14,14 +14,16 @@ See `research.md` §3 for the modeling rationale and safeguards.
 1. `sync` discovers P39 values through WDQS and stores their Wikidata entities
    and one-hop related entities in `positions.duckdb`. Later syncs only fetch
    entities whose revisions changed.
-2. `propose` stores eligible P17/P1001 pairs as pending local claims.
+2. `propose` stores each eligible P17/P1001 pair as one atomic proposal,
+   separate from the claims mirrored from Wikidata.
 3. Running `positions` opens an interactive review loop, ordered by P39 usage.
-   Discard keeps a local tombstone. Accept re-fetches the position and its body,
-   verifies the proposal against live Wikidata, and submits both claims in one
-   edit using revision-based concurrency.
+   Every discard or approval is persisted in the decision table. Accept
+   re-fetches the position and its body, verifies the proposal against live
+   Wikidata, and submits both claims in one revision-guarded edit.
 
-Nothing is submitted without an explicit human acceptance. The local database
-is used to find and track proposals, not as the source of truth at edit time.
+Nothing is submitted without an explicit, recorded human acceptance. The local
+database is used to find and track proposals, not as the source of truth at
+edit time.
 
 ## Setup
 

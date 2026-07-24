@@ -97,14 +97,9 @@ def _store_entity_batch(
     is_position: bool,
 ) -> None:
     """Store an API batch in one transaction instead of committing per entity."""
-    con.execute("BEGIN TRANSACTION")
-    try:
+    with dbmod.transaction(con):
         for parsed in parsed_entities:
             dbmod.upsert_entity(con, parsed, is_position)
-        con.execute("COMMIT")
-    except BaseException:
-        con.execute("ROLLBACK")
-        raise
 
 
 def _fetch_and_store(
@@ -146,8 +141,7 @@ def _replace_position_universe(
     con: duckdb.DuckDBPyConnection, universe: dict[str, int]
 ) -> None:
     """Replace the universe atomically and without one commit per row."""
-    con.execute("BEGIN TRANSACTION")
-    try:
+    with dbmod.transaction(con):
         con.execute("DELETE FROM position")
         con.execute("UPDATE entity SET is_position = FALSE")
         if universe:
@@ -162,10 +156,6 @@ def _replace_position_universe(
                 WHERE qid IN (SELECT qid FROM position)
                 """
             )
-        con.execute("COMMIT")
-    except BaseException:
-        con.execute("ROLLBACK")
-        raise
 
 
 def _related_qids(con: duckdb.DuckDBPyConnection) -> list[str]:

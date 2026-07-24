@@ -1,6 +1,8 @@
-"""Local DuckDB world model."""
+"""Local DuckDB world model and persistence helpers."""
 
 import json
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
 import duckdb
@@ -25,36 +27,55 @@ CREATE TABLE IF NOT EXISTS entity (
     synced_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
+-- Synced Wikidata reality only. Proposals never enter this table.
 CREATE TABLE IF NOT EXISTS claim (
+    statement_id TEXT PRIMARY KEY,
     subject TEXT NOT NULL,
     property TEXT NOT NULL,
-    value TEXT NOT NULL,            -- qid or +ISO time
-    value_type TEXT NOT NULL,       -- 'item' | 'time'
+    value TEXT NOT NULL,             -- qid or +ISO time
+    value_type TEXT NOT NULL,        -- 'item' | 'time'
     rank TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_claim_subject ON claim(subject);
 CREATE INDEX IF NOT EXISTS idx_claim_property ON claim(property);
 CREATE INDEX IF NOT EXISTS idx_claim_value ON claim(value);
 
--- Review queues produced by checks.
-CREATE TABLE IF NOT EXISTS queue (
-    check_name TEXT NOT NULL,
-    qid TEXT NOT NULL,
-    details JSON,
+-- One proposal is one atomic human decision, even when it adds two claims.
+CREATE TABLE IF NOT EXISTS proposal (
+    kind TEXT NOT NULL,
+    position_qid TEXT NOT NULL,
+    body_qid TEXT NOT NULL,
+    country_qid TEXT NOT NULL,
+    jurisdiction_qid TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
-    PRIMARY KEY (check_name, qid)
+    PRIMARY KEY (kind, position_qid)
 );
 
--- Human decisions on queue items. Nothing is submitted without one.
 CREATE TABLE IF NOT EXISTS decision (
-    check_name TEXT NOT NULL,
-    qid TEXT NOT NULL,
-    decision TEXT NOT NULL,         -- 'approved' | 'rejected' | 'skipped'
+    proposal_kind TEXT NOT NULL,
+    position_qid TEXT NOT NULL,
+    decision TEXT NOT NULL CHECK (decision IN ('approved', 'rejected', 'skipped')),
     note TEXT,
     decided_at TIMESTAMP NOT NULL DEFAULT now(),
-    PRIMARY KEY (check_name, qid)
+    submission_revision_id BIGINT,
+    PRIMARY KEY (proposal_kind, position_qid)
 );
 """
+
+ClaimRows = Sequence[tuple[str, str, str, str, str]]
+
+
+@contextmanager
+def transaction(con: duckdb.DuckDBPyConnection) -> Iterator[None]:
+    """Commit a group of writes atomically."""
+    con.execute("BEGIN TRANSACTION")
+    try:
+        yield
+    except BaseException:
+        con.execute("ROLLBACK")
+        raise
+    else:
+        con.execute("COMMIT")
 
 
 def connect(db_path: Path | str = DEFAULT_DB) -> duckdb.DuckDBPyConnection:
@@ -63,8 +84,29 @@ def connect(db_path: Path | str = DEFAULT_DB) -> duckdb.DuckDBPyConnection:
     return con
 
 
-def upsert_entity(con: duckdb.DuckDBPyConnection, parsed: dict, is_position: bool):
-    claims = parsed.pop("claims")
+def replace_claims(
+    con: duckdb.DuckDBPyConnection, subject: str, claims: ClaimRows
+) -> None:
+    """Replace one entity's mirrored claims using the canonical row shape."""
+    con.execute("DELETE FROM claim WHERE subject = ?", [subject])
+    if claims:
+        con.executemany(
+            """
+            INSERT INTO claim
+                (subject, property, value, value_type, rank, statement_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (subject, prop, value, value_type, rank, statement_id)
+                for prop, value, value_type, rank, statement_id in claims
+            ],
+        )
+
+
+def upsert_entity(
+    con: duckdb.DuckDBPyConnection, parsed: dict, is_position: bool
+) -> None:
+    """Store entity metadata and replace its mirrored Wikidata claims."""
     con.execute(
         """
         INSERT INTO entity (qid, labels, descriptions, aliases,
@@ -92,12 +134,18 @@ def upsert_entity(con: duckdb.DuckDBPyConnection, parsed: dict, is_position: boo
             is_position,
         ],
     )
-    con.execute("DELETE FROM claim WHERE subject = ?", [parsed["qid"]])
-    if claims:
-        con.executemany(
-            "INSERT INTO claim (subject, property, value, value_type, rank) VALUES (?, ?, ?, ?, ?)",
-            [
-                (parsed["qid"], prop, val, vtype, rank)
-                for prop, val, vtype, rank in claims
-            ],
-        )
+    replace_claims(con, parsed["qid"], parsed["claims"])
+
+
+def update_entity_claims(
+    con: duckdb.DuckDBPyConnection,
+    qid: str,
+    lastrevid: int,
+    claims: ClaimRows,
+) -> None:
+    """Refresh claims and revision after a successful live edit."""
+    con.execute(
+        "UPDATE entity SET lastrevid = ?, synced_at = now() WHERE qid = ?",
+        [lastrevid, qid],
+    )
+    replace_claims(con, qid, claims)

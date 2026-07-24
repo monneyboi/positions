@@ -37,8 +37,8 @@ src/positions/
   sync.py        revision-aware universe and entity sync
   wdqs.py        paginated WDQS queries and retries
   wikidata.py    entity parsing, live checks, and authenticated edits
-  db.py          DuckDB schema and entity/claim upserts
-  candidates.py  P17/P1001 proposal creation and selection
+  db.py          DuckDB schema, transactions, and claim ingestion
+  candidates.py  P17/P1001 proposal creation, selection, and decisions
   review.py      interactive accept/discard flow
 research.md      audit findings and modeling rules
 ```
@@ -54,17 +54,20 @@ research.md      audit findings and modeling rules
   has exactly one P361 body, has neither target property, and that body has
   exactly one non-deprecated P17 and P1001 value.
 - Do not infer a country for generic roles such as president or senator.
-- Synced claims have a Wikidata statement ID. Pending proposals have a null
-  statement ID; discarded proposals remain as tombstones so they are not
-  proposed again.
+- The `claim` table mirrors Wikidata only. Atomic P17/P1001 proposals and
+  their human decisions live in the separate `proposal` and `decision` tables;
+  decided proposals remain as tombstones so they are not proposed again.
 - Keep the project local and serverless with minimal dependencies.
+- Keep only the current schema and API shapes in the code. Do not add migrations,
+  backward-compatibility branches, or legacy fallbacks: when the schema changes,
+  delete the local DuckDB file and rebuild it with `positions sync`.
 
 ## Implementation notes
 
 - WDQS can time out or truncate large results. Keep stable pagination and retry
   429/5xx responses.
-- `wbgetentities` with `formatversion=2` may return `entities` as a QID-keyed
-  map. Live submission checks must include deprecated statements even though
+- `wbgetentities` with `formatversion=2` returns `entities` as a QID-keyed map.
+  Live submission checks must include deprecated statements even though
   the local sync omits them.
 - Guard empty DuckDB `executemany` calls.
 - Use Python 3.12+, type hints, and Ruff defaults.
