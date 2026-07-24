@@ -1,65 +1,50 @@
 # positions
 
-A personal, low-level tool for making Wikidata the definitive source for
-political positions and governments — across **all** countries.
+A local CLI for reviewing and improving political position items on Wikidata.
+The unit of work is a position used as a `position held (P39)` value, rather
+than a politician.
 
-Where [PoliLoom](https://github.com/opensanctions/poliloom) is a community
-web app whose unit of work is the *politician*, this is a local CLI whose
-unit of work is the *position*: its modeling quality, its holders, its
-freshness.
+The current workflow handles one deterministic cleanup: public offices missing
+both `country (P17)` and `applies to jurisdiction (P1001)` can inherit those
+values from their `part of (P361)` body when the relationship is unambiguous.
+See `research.md` §3 for the modeling rationale and safeguards.
 
-See `research.md` for the audit this tool operationalizes.
+## How it works
 
-## Architecture
+1. `sync` discovers P39 values through WDQS and stores their Wikidata entities
+   and one-hop related entities in `positions.duckdb`. Later syncs only fetch
+   entities whose revisions changed.
+2. `propose` stores eligible P17/P1001 pairs as pending local claims.
+3. Running `positions` opens an interactive review loop, ordered by P39 usage.
+   Discard keeps a local tombstone. Accept re-fetches the position and its body,
+   verifies the proposal against live Wikidata, and submits both claims in one
+   edit using revision-based concurrency.
 
+Nothing is submitted without an explicit human acceptance. The local database
+is used to find and track proposals, not as the source of truth at edit time.
+
+## Setup
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+uv sync
+cp .env.example .env
 ```
-Wikidata ──WDQS──▶ position universe (all values of P39, with usage counts)
-        ──API────▶ entity claims, labels, descriptions (positions + related)
-                          │
-                          ▼
-                   positions.duckdb
-                    │           │
-                    ▼           ▼
-              audit checks    queue + decision tables
-              (SQL over the   (you: positions check / queue / show)
-               local model)
-```
 
-- **Sync** builds a local world model. All of research.md's SPARQL audits
-  become instant local SQL.
-- **Checks** are named queries that produce review queues (`queue` table).
-  New checks are just SQL — the whole point of the local model.
-- **Decisions** (approve/reject/skip) are recorded locally (`decision`
-  table). Nothing is ever submitted to Wikidata without a human decision.
-
-Design constraints that any future component must keep: code generates
-queues, AI agents may gather context and draft proposals, but every edit
-decision is human; and the live Wikidata API is re-fetched before any
-edit — the local DB is for queue generation, never the source of truth
-at edit time.
+A Wikidata OAuth 2.0 access token is only required to accept a proposal. Follow
+`.env.example` to configure `WIKIDATA_ACCESS_TOKEN`.
 
 ## Usage
 
 ```bash
-uv sync
-uv run positions sync            # full universe (~30 min first time)
-uv run positions sync --limit 500   # quick test slice
-uv run positions check           # run all checks, refresh queues
-uv run positions check jurisdiction-backfill
-uv run positions show Q133268398
+uv run positions sync                 # refresh the full local model
+uv run positions sync --limit 500     # small test slice
+uv run positions propose              # create pending P17/P1001 proposals
+uv run positions                      # review: accept, discard, or quit
+uv run positions show Q133268398      # inspect a local entity
 ```
 
-## Checks implemented
+All commands use `positions.duckdb` by default and accept `--db PATH`.
 
-| Check | research.md | What it finds |
-|---|---|---|
-| `jurisdiction-backfill` | §3 | Public offices whose P361 body supplies missing P17/P1001 |
-| `missing-p279` | §5 | Used public offices with no subclass of |
-| `missing-en-label` | §6 | Used public offices with no English label |
-| `missing-en-description` | §6 | Used public offices with no English description |
-| `list-valued` | §7 | Wikimedia list items used as P39 values |
-
-## Planned work
-
-Tracked as [GitHub issues](https://github.com/monneyboi/positions/issues) —
-the issue tracker is the single source of truth for what doesn't exist yet.
+Future work is tracked in the [GitHub issue tracker](https://github.com/monneyboi/positions/issues).

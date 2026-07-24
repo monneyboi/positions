@@ -1,79 +1,70 @@
 # AGENTS.md
 
-Personal tool for auditing and improving political positions on Wikidata,
-across all countries. The unit of work is the **position** (P39 value), not
-the politician — this is the low-level, single-user counterpart to PoliLoom
-(~/projects/poliloom), which is a community web app centered on politicians.
+`positions` is a personal CLI for reviewing improvements to political position
+items on Wikidata. Its unit of work is an item used as a `position held (P39)`
+value, not a politician.
 
-`research.md` is the domain spec: it contains the Wikidata audit this tool
-operationalizes, the modeling rules, and the safeguards. Read the relevant
-section before touching checks or submission logic.
+`research.md` is the domain specification. Read the relevant section before
+changing proposal or submission rules. The implemented workflow is currently
+the deterministic P17/P1001 jurisdiction backfill described in §3.
 
-## Setup commands
+## Commands
 
 ```bash
-uv sync                          # install deps
-uv run positions sync --limit 400   # small test slice into positions.duckdb
-uv run positions check           # run all audit checks, refresh queues
-uv run positions queue <check>   # inspect a queue
-uv run positions show <qid>      # inspect a local entity
+uv sync
+uv run positions sync --limit 400    # build a small local model
+uv run positions propose             # create pending P17/P1001 proposals
+uv run positions                     # interactively accept/discard proposals
+uv run positions show <qid>          # inspect a local entity
 ```
 
-There is no test suite yet; checks are verified with inline scripts against
-an in-memory DuckDB (see git history for examples). Run a `--limit 400`
-sync + `check` as the smoke test after changing sync/check code.
+Accepting submits to Wikidata and requires `WIKIDATA_ACCESS_TOKEN`; see
+`.env.example`. Use a separate `--db` file for smoke tests and do not accept an
+edit during automated verification.
+
+There is no test suite yet. After sync or proposal changes, smoke-test with:
+
+```bash
+uv run positions sync --limit 400 --db /tmp/positions-smoke.duckdb
+uv run positions propose --db /tmp/positions-smoke.duckdb
+```
 
 ## Project structure
 
-```
+```text
 src/positions/
-  cli.py       # typer CLI: sync, check, show, queue
-  sync.py      # orchestrates universe fetch + entity fetch
-  wdqs.py      # WDQS client: paginated position-universe query, retries
-  wikidata.py  # wbgetentities batches, claim parsing (KEEP_CLAIMS allowlist)
-  db.py        # DuckDB schema + upsert (position, entity, claim, queue, decision)
-  checks.py    # named audit checks (pure SQL over local model) -> queue table
-research.md    # the audit/spec — authoritative for check semantics
+  cli.py         Typer commands and review-loop entry point
+  sync.py        revision-aware universe and entity sync
+  wdqs.py        paginated WDQS queries and retries
+  wikidata.py    entity parsing, live checks, and authenticated edits
+  db.py          DuckDB schema and entity/claim upserts
+  candidates.py  P17/P1001 proposal creation and selection
+  review.py      interactive accept/discard flow
+research.md      audit findings and modeling rules
 ```
 
-## Domain rules — read before editing check or submission logic
+## Invariants
 
-- **Code generates queues, AI agents gather context, humans decide.** Never
-  add logic that submits to Wikidata autonomously. Every edit path goes
-  through the `decision` table.
-- Checks operate on the **local model only** (no live SPARQL inside checks).
-  The local DB is for queue generation; live entity JSON must be re-fetched
-  before any actual edit (research.md §10.1).
-- `position` = item used as a value of P39. The high-precision subset is
-  `P31 = Q294414` (public office); research.md §1.2 explains why checks
-  restrict to it and why that is *not* the complete political universe.
-- Do not "fix" missing metadata that is legitimately absent (generic roles
-  like president/senator must not get a single country). research.md §2
-  and §3.4 list the known traps.
-- Adding a new check = add a function + `Check` entry in `checks.py`,
-  following the existing pattern (return `(qid, details-dict)` rows).
+- A human must explicitly accept every edit. Never add unattended submission.
+- Generate proposals from the local model only. Immediately before submission,
+  re-fetch the live position and source body, validate all ranks, and use
+  revision-based concurrency.
+- Submit the paired P17/P1001 proposal atomically or not at all.
+- Only propose the §3 backfill when the position is directly `P31 = Q294414`,
+  has exactly one P361 body, has neither target property, and that body has
+  exactly one non-deprecated P17 and P1001 value.
+- Do not infer a country for generic roles such as president or senator.
+- Synced claims have a Wikidata statement ID. Pending proposals have a null
+  statement ID; discarded proposals remain as tombstones so they are not
+  proposed again.
+- Keep the project local and serverless with minimal dependencies.
 
-## External-service gotchas (learned the hard way)
+## Implementation notes
 
-- WDQS truncates responses around ~18 MB / times out on big aggregations —
-  always paginate with stable `ORDER BY ... LIMIT/OFFSET`, and retry on
-  429/5xx. Never `DISTINCT`+`OFFSET` huge sets without testing.
-- `wbgetentities` with `formatversion=2` returns `entities` as a **map
-  keyed by QID**, not a list.
-- `executemany` in DuckDB errors on empty parameter lists — guard.
-- SPARQL braces collide with Python `.format()` — use token replacement.
-
-## Code style
-
-- Python 3.12+, Ruff defaults, type hints, small modules.
-- Keep dependencies minimal; this is a local CLI (DuckDB + httpx + typer +
-  rich). No web framework, no Postgres — deliberately unlike PoliLoom.
-
-## Borrowing from PoliLoom
-
-[PoliLoom](https://github.com/opensanctions/poliloom) (local checkout:
-~/projects/poliloom) has reusable patterns for: Wikidata JSON-dump streaming
-import (`poliloom/poliloom/importer/`), hierarchy P279 closure, and
-statement submission with OAuth (`poliloom/poliloom/wikidata/statement.py`,
-`poliloom/poliloom/api/auth.py`). Crib from it for roadmap items, but keep
-this repo self-contained and serverless.
+- WDQS can time out or truncate large results. Keep stable pagination and retry
+  429/5xx responses.
+- `wbgetentities` with `formatversion=2` may return `entities` as a QID-keyed
+  map. Live submission checks must include deprecated statements even though
+  the local sync omits them.
+- Guard empty DuckDB `executemany` calls.
+- Use Python 3.12+, type hints, and Ruff defaults.
