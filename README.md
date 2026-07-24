@@ -60,16 +60,6 @@ uv run positions show Q133268398
 
 ## Roadmap
 
-1. **World model** (this): positions universe + claims, local checks.
-2. **Holder statements**: import all P39 statements with qualifiers
-   (start/end, term, cabinet, district, group, references) — from the
-   Wikidata JSON dump, reusing PoliLoom's importer patterns. Enables
-   research.md §4 (P1308→P39 reconciliation) and §8 (statement quality).
-3. **Governments layer**: cabinets, legislatures, agencies (Govdirectory
-   model) — staleness checks like "jurisdiction has >1 'current' cabinet"
-   or missing P576/P9798.
-4. **Review loop**: TUI serving queue items with full context; approve →
-   QuickStatements file or direct API edit; revision IDs logged for
-   rollback.
-5. **Freshness monitor**: scheduled re-sync, diff against official sources
-   scraped by agents — "Wikidata thinks X, government site says Y".
+Milestone 1 (world model: position universe + claims, local checks) is done.
+Next steps live as [GitHub issues](https://github.com/monneyboi/positions/issues),
+not here — the issue tracker is the single source of truth for planned work.
