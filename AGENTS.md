@@ -71,7 +71,8 @@ research.md    # the audit/spec — authoritative for check semantics
 
 ## Borrowing from PoliLoom
 
-~/projects/poliloom has reusable patterns for: Wikidata JSON-dump streaming
+[PoliLoom](https://github.com/opensanctions/poliloom) (local checkout:
+~/projects/poliloom) has reusable patterns for: Wikidata JSON-dump streaming
 import (`poliloom/poliloom/importer/`), hierarchy P279 closure, and
 statement submission with OAuth (`poliloom/poliloom/wikidata/statement.py`,
 `poliloom/poliloom/api/auth.py`). Crib from it for roadmap items, but keep

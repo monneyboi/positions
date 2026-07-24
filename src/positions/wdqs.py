@@ -1,6 +1,7 @@
 """WDQS client with pagination and retry."""
 
 import time
+from collections.abc import Callable
 
 import httpx
 
@@ -23,7 +24,11 @@ class WdqsError(Exception):
     pass
 
 
-def query(sparql: str, retries: int = 5) -> list[dict]:
+def query(
+    sparql: str,
+    retries: int = 5,
+    on_retry: Callable[[str], None] | None = None,
+) -> list[dict]:
     """Run a SPARQL query, return bindings as plain dicts of values."""
     last_error: Exception | None = None
     for attempt in range(retries):
@@ -51,13 +56,23 @@ def query(sparql: str, retries: int = 5) -> list[dict]:
         except (WdqsError, httpx.HTTPError, ValueError) as e:
             last_error = e
             wait = min(2**attempt * 5, 120)
+            if on_retry is not None:
+                on_retry(
+                    f"request {attempt + 1}/{retries} failed ({e}); "
+                    f"retrying in {wait}s"
+                )
             time.sleep(wait)
     raise WdqsError(f"WDQS failed after {retries} attempts: {last_error}")
 
 
-def position_universe(page_size: int = 5000, max_items: int | None = None):
+def position_universe(
+    page_size: int = 5000,
+    max_items: int | None = None,
+    on_status: Callable[[str], None] | None = None,
+):
     """Yield (qid, links) for every item used as a value of P39."""
     offset = 0
+    page = 1
     while True:
         limit = page_size
         if max_items is not None:
@@ -65,16 +80,30 @@ def position_universe(page_size: int = 5000, max_items: int | None = None):
             if remaining <= 0:
                 return
             limit = min(limit, remaining)
+        if on_status is not None:
+            on_status(
+                f"page {page}: requesting up to {limit:,} rows "
+                f"from offset {offset:,}"
+            )
         rows = query(
             POSITION_UNIVERSE_QUERY.replace("__LIMIT__", str(limit)).replace(
                 "__OFFSET__", str(offset)
-            )
+            ),
+            on_retry=on_status,
         )
         if not rows:
+            if on_status is not None:
+                on_status(f"page {page}: no rows returned")
             return
         for row in rows:
             qid = row["position"].rsplit("/", 1)[-1]
             yield qid, int(row["links"])
         offset += len(rows)
+        if on_status is not None:
+            on_status(
+                f"page {page}: received {len(rows):,} rows "
+                f"({offset:,} total)"
+            )
         if len(rows) < limit:
             return
+        page += 1

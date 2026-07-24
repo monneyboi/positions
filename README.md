@@ -17,25 +17,26 @@ Wikidata ──WDQS──▶ position universe (all values of P39, with usage co
         ──API────▶ entity claims, labels, descriptions (positions + related)
                           │
                           ▼
-                   positions.duckdb ◀──── you: positions check / show / review
-                          │
-              ┌───────────┼───────────────┐
-              ▼           ▼               ▼
-        audit checks   agent bridge    submitter
-        (SQL queues)   (context out,   (QuickStatements /
-                        proposals in)   API edits, logged)
+                   positions.duckdb
+                    │           │
+                    ▼           ▼
+              audit checks    queue + decision tables
+              (SQL over the   (you: positions check / queue / show)
+               local model)
 ```
 
 - **Sync** builds a local world model. All of research.md's SPARQL audits
   become instant local SQL.
 - **Checks** are named queries that produce review queues (`queue` table).
   New checks are just SQL — the whole point of the local model.
-- **Decisions** (approve/reject/skip) are recorded locally. Nothing is ever
-  submitted to Wikidata without a human decision.
-- **Agents** gather context (official sources, translations, parent-class
-  candidates) and write *proposals*. Deterministic rules validate them.
-- The live Wikidata API is re-fetched before any submission; the local DB
-  is for queue generation, never the source of truth at edit time.
+- **Decisions** (approve/reject/skip) are recorded locally (`decision`
+  table). Nothing is ever submitted to Wikidata without a human decision.
+
+Design constraints that any future component must keep: code generates
+queues, AI agents may gather context and draft proposals, but every edit
+decision is human; and the live Wikidata API is re-fetched before any
+edit — the local DB is for queue generation, never the source of truth
+at edit time.
 
 ## Usage
 
@@ -58,8 +59,7 @@ uv run positions show Q133268398
 | `missing-en-description` | §6 | Used public offices with no English description |
 | `list-valued` | §7 | Wikimedia list items used as P39 values |
 
-## Roadmap
+## Planned work
 
-Milestone 1 (world model: position universe + claims, local checks) is done.
-Next steps live as [GitHub issues](https://github.com/monneyboi/positions/issues),
-not here — the issue tracker is the single source of truth for planned work.
+Tracked as [GitHub issues](https://github.com/monneyboi/positions/issues) —
+the issue tracker is the single source of truth for what doesn't exist yet.
