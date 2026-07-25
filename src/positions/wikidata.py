@@ -245,7 +245,6 @@ def add_item_claims(
     qid: str,
     property_values: dict[str, str],
     baserevid: int,
-    summary: str,
     retries: int = 3,
 ) -> dict:
     """Add item-valued claims in ONE atomic wbeditentity edit.
@@ -274,7 +273,6 @@ def add_item_claims(
         "id": qid,
         "data": json.dumps({"claims": claims}),
         "baserevid": str(baserevid),
-        "summary": summary,
         "maxlag": "5",
         "format": "json",
         "token": _csrf_token(client),

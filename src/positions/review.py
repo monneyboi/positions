@@ -17,11 +17,6 @@ from . import db as dbmod
 
 console = Console()
 
-EDIT_SUMMARY = (
-    "add P17/P1001 inherited from P361 body "
-    "([[Wikidata:WikiProject every politician/Political data model]])"
-)
-
 
 class SubmitConflict(Exception):
     """Live Wikidata state disagrees with the local proposal."""
@@ -107,7 +102,6 @@ def _accept(con: duckdb.DuckDBPyConnection, qid: str, d: dict) -> bool:
                 qid,
                 {"P17": d["country"]["qid"], "P1001": d["jurisdiction"]["qid"]},
                 baserevid=baserevid,
-                summary=EDIT_SUMMARY,
             )
     except wikidata.SubmitError as error:
         candidates.withdraw_approval(con, qid)
