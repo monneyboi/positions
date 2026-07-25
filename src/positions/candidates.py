@@ -1,23 +1,21 @@
-"""Jurisdiction-backfill proposal generation and persistence.
+"""On-the-fly jurisdiction-backfill candidate selection and human decisions.
 
-Each proposal is one atomic review action: copy both P17 and P1001 from a
-position's sole P361 body. Synced claims remain in `claim`; proposals and
-human decisions have their own tables.
-
+Candidates are derived from the local model when needed and never stored.
 The conservative eligibility rules come from research.md §3.4: the position
 must be a directly typed public office with exactly one P361 statement, no
 P17/P1001, and a body with exactly one non-deprecated P17 and P1001 statement.
 The review path verifies the same facts against live Wikidata at every rank.
+
+Human decisions are the only persisted review state: they live in the
+decision table as tombstones so a decided position is never proposed again.
 """
 
 import duckdb
 
-from . import db as dbmod
-
 KIND = "jurisdiction-backfill"
 
-
-_CREATE_PROPOSALS_SQL = """
+# Undecided positions eligible for the §3 backfill, from the local model only.
+_ELIGIBLE_SQL = """
 WITH public_office AS (
     SELECT DISTINCT subject AS position_qid
     FROM claim
@@ -41,10 +39,8 @@ single_body_context AS (
        AND count(*) FILTER (WHERE property = 'P1001') = 1
 ),
 eligible AS (
-    SELECT p.qid AS position_qid,
-           b.body_qid,
-           context.country_qid,
-           context.jurisdiction_qid
+    SELECT p.qid AS position_qid, p.links,
+           b.body_qid, context.country_qid, context.jurisdiction_qid
     FROM position p
     JOIN public_office office ON office.position_qid = p.qid
     JOIN single_body b ON b.position_qid = p.qid
@@ -53,67 +49,40 @@ eligible AS (
         SELECT 1 FROM claim c
         WHERE c.subject = p.qid AND c.property IN ('P17', 'P1001')
     )
+      AND NOT EXISTS (
+        SELECT 1 FROM decision d
+        WHERE d.proposal_kind = ? AND d.position_qid = p.qid
+    )
+      AND (? IS NULL OR p.qid != ?)
 )
-INSERT INTO proposal (kind, position_qid, body_qid, country_qid, jurisdiction_qid)
-SELECT ?, position_qid, body_qid, country_qid, jurisdiction_qid
-FROM eligible
-ON CONFLICT DO NOTHING
 """
 
 
-def create_proposals(con: duckdb.DuckDBPyConnection) -> int:
-    """Refresh undecided proposals and return the pending count."""
-    with dbmod.transaction(con):
-        con.execute(
-            """
-            DELETE FROM proposal p
-            WHERE p.kind = ? AND NOT EXISTS (
-                SELECT 1 FROM decision d
-                WHERE d.proposal_kind = p.kind
-                  AND d.position_qid = p.position_qid
-            )
-            """,
-            [KIND],
-        )
-        con.execute(_CREATE_PROPOSALS_SQL, [KIND])
-    return count_pending(con)
+def next_candidate(
+    con: duckdb.DuckDBPyConnection, exclude: str | None = None
+) -> tuple[str, dict] | None:
+    """Return the highest-impact undecided candidate for the review UI.
 
-
-def count_pending(con: duckdb.DuckDBPyConnection) -> int:
-    """Return proposals that have not received a human decision."""
-    return con.execute(
-        """
-        SELECT count(*)
-        FROM proposal p
-        LEFT JOIN decision d
-          ON d.proposal_kind = p.kind AND d.position_qid = p.position_qid
-        WHERE p.kind = ? AND d.position_qid IS NULL
-        """,
-        [KIND],
-    ).fetchone()[0]
-
-
-def next_pending(con: duckdb.DuckDBPyConnection) -> tuple[str, dict] | None:
-    """Return the highest-impact undecided proposal for the review UI."""
+    `exclude` skips one qid, so a background prefetch can select the
+    candidate after the one currently on screen.
+    """
     row = con.execute(
-        """
-        SELECT p.position_qid, position.en_label, coalesce(universe.links, 0),
-               p.body_qid, body.en_label,
-               p.country_qid, country.en_label,
-               p.jurisdiction_qid, jurisdiction.en_label
-        FROM proposal p
-        LEFT JOIN position universe ON universe.qid = p.position_qid
-        JOIN entity position ON position.qid = p.position_qid
-        LEFT JOIN entity body ON body.qid = p.body_qid
-        LEFT JOIN entity country ON country.qid = p.country_qid
-        LEFT JOIN entity jurisdiction ON jurisdiction.qid = p.jurisdiction_qid
-        LEFT JOIN decision d
-          ON d.proposal_kind = p.kind AND d.position_qid = p.position_qid
-        WHERE p.kind = ? AND d.position_qid IS NULL
-        ORDER BY universe.links DESC, p.position_qid
+        _ELIGIBLE_SQL
+        + """
+        SELECT eligible.position_qid, position.en_label, eligible.links,
+               eligible.body_qid, body.en_label,
+               eligible.country_qid, country.en_label,
+               eligible.jurisdiction_qid, jurisdiction.en_label
+        FROM eligible
+        JOIN entity position ON position.qid = eligible.position_qid
+        LEFT JOIN entity body ON body.qid = eligible.body_qid
+        LEFT JOIN entity country ON country.qid = eligible.country_qid
+        LEFT JOIN entity jurisdiction
+          ON jurisdiction.qid = eligible.jurisdiction_qid
+        ORDER BY eligible.links DESC, eligible.position_qid
         LIMIT 1
         """,
-        [KIND],
+        [KIND, exclude, exclude],
     ).fetchone()
     if row is None:
         return None
@@ -127,6 +96,13 @@ def next_pending(con: duckdb.DuckDBPyConnection) -> tuple[str, dict] | None:
             "jurisdiction": {"qid": row[7], "label": row[8]},
         },
     )
+
+
+def count_candidates(con: duckdb.DuckDBPyConnection) -> int:
+    """Return how many undecided candidates the local model currently has."""
+    return con.execute(
+        _ELIGIBLE_SQL + "SELECT count(*) FROM eligible", [KIND, None, None]
+    ).fetchone()[0]
 
 
 def decide(

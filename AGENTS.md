@@ -13,8 +13,7 @@ the deterministic P17/P1001 jurisdiction backfill described in §3.
 ```bash
 uv sync
 uv run positions sync --limit 400    # build a small local model
-uv run positions propose             # create pending P17/P1001 proposals
-uv run positions                     # interactively accept/discard proposals
+uv run positions                     # TUI: accept/discard on-the-fly proposals
 uv run positions show <qid>          # inspect a local entity
 ```
 
@@ -26,20 +25,22 @@ There is no test suite yet. After sync or proposal changes, smoke-test with:
 
 ```bash
 uv run positions sync --limit 400 --db /tmp/positions-smoke.duckdb
-uv run positions propose --db /tmp/positions-smoke.duckdb
+uv run positions --db /tmp/positions-smoke.duckdb
 ```
+
+Do not accept an edit during automated verification; discard or quit instead.
 
 ## Project structure
 
 ```text
 src/positions/
-  cli.py         Typer commands and review-loop entry point
+  cli.py         Typer commands and TUI entry point
+  tui.py         Textual review loop with background prefetch
   sync.py        revision-aware universe and entity sync
   wdqs.py        paginated WDQS queries and retries
   wikidata.py    entity parsing, live checks, and authenticated edits
   db.py          DuckDB schema, transactions, and claim ingestion
-  candidates.py  P17/P1001 proposal creation, selection, and decisions
-  review.py      interactive accept/discard flow
+  candidates.py  on-the-fly P17/P1001 candidate selection and decisions
 research.md      audit findings and modeling rules
 ```
 
@@ -54,9 +55,9 @@ research.md      audit findings and modeling rules
   has exactly one P361 body, has neither target property, and that body has
   exactly one non-deprecated P17 and P1001 value.
 - Do not infer a country for generic roles such as president or senator.
-- The `claim` table mirrors Wikidata only. Atomic P17/P1001 proposals and
-  their human decisions live in the separate `proposal` and `decision` tables;
-  decided proposals remain as tombstones so they are not proposed again.
+- The `claim` table mirrors Wikidata only. Proposals are derived from the
+  local model on the fly and never stored; human decisions live in the
+  `decision` table as tombstones so decided positions are not proposed again.
 - Keep the project local and serverless with minimal dependencies.
 - Keep only the current schema and API shapes in the code. Do not add migrations,
   backward-compatibility branches, or legacy fallbacks: when the schema changes,

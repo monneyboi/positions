@@ -1,4 +1,4 @@
-"""positions CLI: sync, proposal generation, inspection, and review."""
+"""positions CLI: sync, inspection, and the interactive review TUI."""
 
 from pathlib import Path
 
@@ -7,10 +7,9 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
-from . import candidates
 from . import db as dbmod
-from . import review as reviewmod
 from . import sync as syncmod
+from . import tui
 
 app = typer.Typer(help="Personal tool for auditing political positions on Wikidata.")
 console = Console()
@@ -24,7 +23,7 @@ load_dotenv()
 def main(ctx: typer.Context, db: Path = DbOption):
     """Review proposals one at a time; accept pushes to Wikidata."""
     if ctx.invoked_subcommand is None:
-        reviewmod.review(db)
+        tui.review(db)
 
 
 @app.command()
@@ -34,17 +33,6 @@ def sync(
 ):
     """Sync the local world model from WDQS + the Wikidata API."""
     syncmod.sync(db, limit=limit)
-
-
-@app.command()
-def propose(db: Path = DbOption):
-    """Create P17/P1001 proposals for eligible positions."""
-    con = dbmod.connect(db)
-    try:
-        count = candidates.create_proposals(con)
-    finally:
-        con.close()
-    console.print(f"{count:,} positions with pending proposals")
 
 
 @app.command()

@@ -40,17 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_claim_subject ON claim(subject);
 CREATE INDEX IF NOT EXISTS idx_claim_property ON claim(property);
 CREATE INDEX IF NOT EXISTS idx_claim_value ON claim(value);
 
--- One proposal is one atomic human decision, even when it adds two claims.
-CREATE TABLE IF NOT EXISTS proposal (
-    kind TEXT NOT NULL,
-    position_qid TEXT NOT NULL,
-    body_qid TEXT NOT NULL,
-    country_qid TEXT NOT NULL,
-    jurisdiction_qid TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now(),
-    PRIMARY KEY (kind, position_qid)
-);
-
+-- Human decisions are the only persisted review state. Proposals are
+-- derived from the local model on the fly; decided positions remain as
+-- tombstones so they are never proposed again.
 CREATE TABLE IF NOT EXISTS decision (
     proposal_kind TEXT NOT NULL,
     position_qid TEXT NOT NULL,
