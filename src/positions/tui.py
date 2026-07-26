@@ -185,7 +185,7 @@ class PositionsApp(App):
         self, proposal_id: int, entity: str, statements: list[dict], summary: str
     ) -> None:
         try:
-            with wikidata._auth_client() as client:
+            with wikidata.auth_client() as client:
                 baserevid = wikidata.verify_live(client, entity, statements)
                 response = wikidata.add_item_claims(
                     client, entity, statements, baserevid=baserevid, summary=summary

@@ -22,15 +22,8 @@ uv run positions                        # TUI: accept/discard queued proposals
 ```
 
 Accepting submits to Wikidata and requires `WIKIDATA_ACCESS_TOKEN`; see
-`.env.example`. Use a separate `--db` file for smoke tests and do not accept
+`.env.example`. Use a separate `--db` file for tests and never accept
 an edit during automated verification.
-
-There is no test suite yet. After queue or review changes, smoke-test with:
-
-```bash
-echo '{"proposals": []}' | uv run positions queue --db /tmp/smoke.sqlite
-uv run positions list --db /tmp/smoke.sqlite
-```
 
 ## Project structure
 

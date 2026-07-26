@@ -15,6 +15,9 @@ API_URL = "https://www.wikidata.org/w/api.php"
 USER_AGENT = "positions/0.2 (personal Wikidata review tool; httpx)"
 
 
+RETRIES = 3  # wbeditentity attempts on transient server errors
+
+
 class SubmitError(Exception):
     """A Wikidata edit was rejected or failed; safe to retry manually."""
 
@@ -23,7 +26,7 @@ class SubmitConflict(Exception):
     """Live Wikidata state disagrees with the queued proposal."""
 
 
-def _auth_client() -> httpx.Client:
+def auth_client() -> httpx.Client:
     token = os.environ.get("WIKIDATA_ACCESS_TOKEN")
     if not token:
         raise SubmitError("WIKIDATA_ACCESS_TOKEN is not set (see .env.example)")
@@ -67,12 +70,12 @@ def fetch_live(client: httpx.Client, qid: str) -> dict:
     return entity
 
 
-def non_deprecated_values(entity: dict, prop: str) -> list[str]:
-    """Live item values of a property, excluding deprecated statements."""
+def live_values(entity: dict, prop: str) -> list[tuple[str, str]]:
+    """Live item values of a property at every rank, as (rank, qid) pairs."""
     return [
-        qid
+        (claim.get("rank", "normal"), qid)
         for claim in entity.get("claims", {}).get(prop, [])
-        if claim.get("rank") != "deprecated" and (qid := _qid_of(claim)) is not None
+        if (qid := _qid_of(claim)) is not None
     ]
 
 
@@ -81,16 +84,18 @@ def verify_live(client: httpx.Client, entity: str, statements: list[dict]) -> in
 
     This is the last automated guard before an edit: the human reviewed a
     proposal, and here we only check that live Wikidata has not gained the
-    same statement (at a non-deprecated rank) in the meantime.
+    same statement — at ANY rank — in the meantime. A deprecated value is
+    still a conflict: someone deliberately marked that value wrong, so
+    re-adding it needs fresh research, not a blind resubmission.
     """
     live = fetch_live(client, entity)
     for statement in statements:
         prop, value = statement["property"], statement["value"]
-        existing = non_deprecated_values(live, prop)
-        if value in existing:
-            raise SubmitConflict(
-                f"{entity} already has {prop} → {value} — someone got there first"
-            )
+        for rank, qid in live_values(live, prop):
+            if qid == value:
+                raise SubmitConflict(
+                    f"{entity} already has {prop} → {value} at {rank} rank"
+                )
     return live["lastrevid"]
 
 
@@ -117,7 +122,6 @@ def add_item_claims(
     statements: list[dict],
     baserevid: int,
     summary: str,
-    retries: int = 3,
 ) -> dict:
     """Add item-valued claims in ONE atomic wbeditentity edit.
 
@@ -153,7 +157,7 @@ def add_item_claims(
         "format": "json",
         "token": _csrf_token(client),
     }
-    for attempt in range(retries):
+    for attempt in range(RETRIES):
         try:
             resp = client.post(API_URL, data=params)
             if resp.status_code in (429, 500, 502, 503, 504):
@@ -161,7 +165,7 @@ def add_item_claims(
                 continue
             resp.raise_for_status()
         except httpx.HTTPError as error:
-            if attempt + 1 == retries:
+            if attempt + 1 == RETRIES:
                 raise SubmitError(f"Wikidata edit request failed: {error}") from error
             time.sleep(min(2**attempt * 5, 60))
             continue
@@ -170,4 +174,4 @@ def add_item_claims(
             info = data["error"].get("info", data["error"].get("code", "unknown"))
             raise SubmitError(f"Wikidata rejected the edit: {info}")
         return data["entity"]
-    raise SubmitError(f"Wikidata edit failed after {retries} attempts (server busy)")
+    raise SubmitError(f"Wikidata edit failed after {RETRIES} attempts (server busy)")
