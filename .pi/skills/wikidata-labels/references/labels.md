@@ -86,6 +86,10 @@ claims there.  The final section is project-specific advice.
 
 ## Query/API behaviour is not automatically local-client behaviour
 
+* This project queries via the QLever mirror, which has no
+  `wikibase:label` service; use `rdfs:label` with an explicit
+  `FILTER(LANG(...))`. See the `wikidata-querying` skill. The bullets
+  below describe WDQS behaviour for reference.
 * `wbgetentities` can perform Wikibase language fallback when requested with
   `languagefallback=1`; a raw full labels map has not thereby been resolved.
   [User options](https://www.wikidata.org/wiki/Help:Navigating_Wikidata/User_Options#Language_fallback_chain)

@@ -1,5 +1,5 @@
 ---
-name: positions-propose
+name: propose-edits
 description: Queue proposed Wikidata edits for human review using the positions CLI. Use whenever you have found a concrete improvement to a Wikidata item (especially political positions, institutions, or jurisdictions) that should be verified and submitted by a human. Never edit Wikidata directly — always queue.
 ---
 
@@ -13,16 +13,18 @@ submits to Wikidata (with a live duplicate check and revision concurrency).
 
 ## Workflow
 
-1. **Find candidates.** Query WDQS (`https://query.wikidata.org/sparql`) and
-   fetch entities with `wbgetentities`
-   (`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q…&props=info|labels|claims&format=json&formatversion=2`).
-   Follow the modeling rules in the `wikidata-political-model` skill.
-2. **Verify against live data first.** Before queueing, re-check the current
-   live entity: the statement you want to add must not already exist at any
-   rank, and the facts your rationale depends on must still hold.
-3. **Check the tombstones.** Run `uv run positions list --status all` and do
-   not re-propose anything already rejected or stale. (The queue also skips
-   known fingerprints automatically.)
+1. **Find candidates** with SPARQL against the QLever mirror (see the
+   `wikidata-querying` skill for the endpoint and how it differs from
+   WDQS). Follow the modeling rules in the `wikidata-political-model`
+   skill.
+2. **Verify against live data first.** Before queueing, re-fetch the
+   entity with `wbgetentities`
+   (`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q…&props=info|labels|claims&format=json&formatversion=2`):
+   the statement you want to add must not already exist at any rank, and
+   the facts your rationale depends on must still hold.
+3. **Check the tombstones.** Run `uv run positions list --status all`
+   and do not re-propose anything already rejected or stale. (The queue
+   also skips known fingerprints automatically.)
 4. **Queue the payload** (schema below):
 
    ```bash
@@ -34,8 +36,8 @@ submits to Wikidata (with a live duplicate check and revision concurrency).
 
 ## Payload schema
 
-A JSON object `{"proposals": [...]}` (a bare list also works). Each proposal
-edits ONE entity atomically:
+A JSON object `{"proposals": [...]}` (a bare list also works). Each
+proposal edits ONE entity atomically:
 
 ```json
 {
@@ -56,14 +58,15 @@ edits ONE entity atomically:
 
 Rules:
 
-- Add-only, item-valued statements (`property` = PID, `value` = QID). No rank
-  changes, removals, qualifiers, or non-item values yet.
+- Add-only, item-valued statements (`property` = PID, `value` = QID). No
+  rank changes, removals, qualifiers, or non-item values yet.
 - `summary` is required and becomes the Wikidata edit summary — include
   human-readable labels, not just QIDs.
 - `rationale` and `sources` are what the human verifies against. Always
-  provide them; cite official sources or the Wikidata items you relied on.
-- Group statements that only make sense together (e.g. a paired P17 + P1001)
-  in one proposal so they are submitted atomically.
+  provide them; cite official sources or the Wikidata items you relied
+  on.
+- Group statements that only make sense together (e.g. a paired
+  P17 + P1001) in one proposal so they are submitted atomically.
 
 ## Useful commands
 

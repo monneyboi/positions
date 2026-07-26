@@ -58,4 +58,4 @@ uv run positions --db /tmp/smoke.sqlite # any command works on a scratch DB
 ```
 
 Add-only, item-valued statements; one proposal edits one entity atomically.
-See `.pi/skills/positions-propose/SKILL.md` for the full agent contract.
+See `.pi/skills/propose-edits/SKILL.md` for the full agent contract.
