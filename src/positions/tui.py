@@ -87,6 +87,7 @@ class PositionsApp(App):
     BINDINGS: ClassVar = [
         Binding("a", "accept", "Accept"),
         Binding("d", "discard", "Discard"),
+        Binding("r", "refresh", "Refresh"),
         Binding("q", "request_quit", "Quit"),
     ]
 
@@ -94,7 +95,6 @@ class PositionsApp(App):
         super().__init__()
         self.db_path = db_path
         self.session: dbmod.Session | None = None
-        self.queue: list[int] = []  # pending proposal ids, snapshot at mount
         self.busy = False  # a submission is in flight
 
     def compose(self) -> ComposeResult:
@@ -106,7 +106,6 @@ class PositionsApp(App):
 
     def on_mount(self) -> None:
         self.session = dbmod.open_session(self.db_path)
-        self.queue = [p.id for p in dbmod.pending(self.session)]
         self._show_current()
 
     def on_unmount(self) -> None:
@@ -123,9 +122,11 @@ class PositionsApp(App):
 
     @property
     def current(self) -> dbmod.Proposal | None:
-        if not self.queue or self.session is None:
+        """The first pending proposal, queried fresh on every access."""
+        if self.session is None:
             return None
-        return self.session.get(dbmod.Proposal, self.queue[0])
+        proposals = dbmod.pending(self.session)
+        return proposals[0] if proposals else None
 
     def _show_current(self) -> None:
         panel = self.query_one("#proposal", Static)
@@ -135,16 +136,16 @@ class PositionsApp(App):
             panel.border_title = "done"
             self._set_status(
                 "Queue edits with `positions queue < payload.json`, "
-                "then restart the review. Press q to quit."
+                "press r to refresh or q to quit."
             )
             return
+        assert self.session is not None
         panel.update(render_proposal(proposal))
-        panel.border_title = f"#{proposal.id} — {len(self.queue):,} pending"
+        count = len(dbmod.pending(self.session))
+        panel.border_title = f"#{proposal.id} — {count:,} pending"
         self._set_status("")
 
     def _advance(self) -> None:
-        if self.queue:
-            self.queue.pop(0)
         self._show_current()
 
     # Actions
@@ -170,6 +171,10 @@ class PositionsApp(App):
         dbmod.decide(self.session, proposal, dbmod.REJECTED)
         self._log(f"[red]✗[/] discarded #{proposal.id} {proposal.entity}")
         self._advance()
+
+    def action_refresh(self) -> None:
+        if not self.busy:
+            self._show_current()
 
     def action_request_quit(self) -> None:
         if self.busy:
