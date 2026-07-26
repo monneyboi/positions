@@ -1,74 +1,70 @@
 # AGENTS.md
 
-`positions` is a personal CLI for reviewing improvements to political position
-items on Wikidata. Its unit of work is an item used as a `position held (P39)`
-value, not a politician.
+`positions` is a personal human-in-the-loop queue for improving political
+position items on Wikidata. An LLM agent researches and queues proposed
+edits; a human reviews them in the TUI and only an explicit accept submits.
 
-`research.md` is the domain specification. Read the relevant section before
-changing proposal or submission rules. The implemented workflow is currently
-the deterministic P17/P1001 jurisdiction backfill described in §3.
+The local SQLite database holds **proposed edits only** — there is no
+Wikidata mirror and no sync. The agent queries Wikidata (WDQS,
+`wbgetentities`) and the web itself. Domain knowledge lives in pi skills
+under `.pi/skills/`, not in code.
 
 ## Commands
 
 ```bash
 uv sync
-uv run positions sync --limit 400    # build a small local model
-uv run positions                     # TUI: accept/discard on-the-fly proposals
-uv run positions show <qid>          # inspect a local entity
+uv run positions queue proposals.json   # enqueue proposed edits (agent-facing)
+uv run positions list --status all      # pending queue and tombstones
+uv run positions show <id>              # full proposal detail
+uv run positions                        # TUI: accept/discard queued proposals
 ```
 
 Accepting submits to Wikidata and requires `WIKIDATA_ACCESS_TOKEN`; see
-`.env.example`. Use a separate `--db` file for smoke tests and do not accept an
-edit during automated verification.
+`.env.example`. Use a separate `--db` file for smoke tests and do not accept
+an edit during automated verification.
 
-There is no test suite yet. After sync or proposal changes, smoke-test with:
+There is no test suite yet. After queue or review changes, smoke-test with:
 
 ```bash
-uv run positions sync --limit 400 --db /tmp/positions-smoke.duckdb
-uv run positions --db /tmp/positions-smoke.duckdb
+echo '{"proposals": []}' | uv run positions queue --db /tmp/smoke.sqlite
+uv run positions list --db /tmp/smoke.sqlite
 ```
-
-Do not accept an edit during automated verification; discard or quit instead.
 
 ## Project structure
 
 ```text
 src/positions/
-  cli.py         Typer commands and TUI entry point
-  tui.py         Textual review loop with background prefetch
-  sync.py        revision-aware universe and entity sync
-  wdqs.py        paginated WDQS queries and retries
-  wikidata.py    entity parsing, live checks, and authenticated edits
-  db.py          DuckDB schema, transactions, and claim ingestion
-  candidates.py  on-the-fly P17/P1001 candidate selection and decisions
-research.md      audit findings and modeling rules
+  cli.py         Typer commands (queue/list/show/drop) and TUI entry point
+  tui.py         Textual review loop over pending proposals
+  proposals.py   queue JSON payload schema and validation
+  wikidata.py    live duplicate checks and authenticated atomic edits
+  db.py          SQLAlchemy/SQLite proposal queue and tombstones
+.pi/skills/
+  positions-propose/         agent workflow: research, verify, queue
+  wikidata-political-model/  political data modeling reference
+  wikidata-labels/           labels, aliases, mul, and fallback reference
 ```
 
 ## Invariants
 
-- A human must explicitly accept every edit. Never add unattended submission.
-- Generate proposals from the local model only. Immediately before submission,
-  re-fetch the live position and source body, validate all ranks, and use
-  revision-based concurrency.
-- Submit the paired P17/P1001 proposal atomically or not at all.
-- Only propose the §3 backfill when the position is directly `P31 = Q294414`,
-  has exactly one P361 body, has neither target property, and that body has
-  exactly one non-deprecated P17 and P1001 value.
-- Do not infer a country for generic roles such as president or senator.
-- The `claim` table mirrors Wikidata only. Proposals are derived from the
-  local model on the fly and never stored; human decisions live in the
-  `decision` table as tombstones so decided positions are not proposed again.
+- A human must explicitly accept every edit. Never add unattended submission;
+  the agent's only write path is `positions queue`.
+- Proposals are add-only, item-valued statements; one proposal edits one
+  entity and is submitted atomically or not at all.
+- Immediately before submission, re-fetch the live entity, confirm the
+  proposed statements are still new at every rank, and use baserevid
+  concurrency. If live state changed, mark the proposal stale — never force
+  an edit through.
+- Terminal proposal states (submitted/rejected/stale) stay in the table as
+  tombstones keyed by content fingerprint, so a decided edit is never
+  proposed again.
 - Keep the project local and serverless with minimal dependencies.
-- Keep only the current schema and API shapes in the code. Do not add migrations,
-  backward-compatibility branches, or legacy fallbacks: when the schema changes,
-  delete the local DuckDB file and rebuild it with `positions sync`.
+- Keep only the current schema and API shapes in the code. Do not add
+  migrations, backward-compatibility branches, or legacy fallbacks: when the
+  schema changes, delete the local SQLite file and requeue.
 
 ## Implementation notes
 
-- WDQS can time out or truncate large results. Keep stable pagination and retry
-  429/5xx responses.
 - `wbgetentities` with `formatversion=2` returns `entities` as a QID-keyed map.
-  Live submission checks must include deprecated statements even though
-  the local sync omits them.
-- Guard empty DuckDB `executemany` calls.
+  Live submission checks must include deprecated statements.
 - Use Python 3.12+, type hints, and Ruff defaults.

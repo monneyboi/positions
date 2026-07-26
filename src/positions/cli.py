@@ -1,5 +1,6 @@
-"""positions CLI: sync, inspection, and the interactive review TUI."""
+"""positions CLI: queue proposed edits, inspect the queue, and review them."""
 
+import sys
 from pathlib import Path
 
 import typer
@@ -8,75 +9,122 @@ from rich.console import Console
 from rich.table import Table
 
 from . import db as dbmod
-from . import sync as syncmod
+from . import proposals as proposals_mod
 from . import tui
 
-app = typer.Typer(help="Personal tool for auditing political positions on Wikidata.")
+app = typer.Typer(
+    help="Personal queue for human-reviewed Wikidata edits to political positions."
+)
 console = Console()
 
-DbOption = typer.Option(Path("positions.duckdb"), "--db", help="DuckDB file path.")
+FileArgument = typer.Argument("-", help="JSON payload file, or stdin.")
+DbOption = typer.Option(Path("positions.sqlite"), "--db", help="SQLite file path.")
 
 load_dotenv()
 
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, db: Path = DbOption):
-    """Review proposals one at a time; accept pushes to Wikidata."""
+    """Review queued proposals one at a time; accept pushes to Wikidata."""
     if ctx.invoked_subcommand is None:
         tui.review(db)
 
 
 @app.command()
-def sync(
-    limit: int | None = typer.Option(None, help="Limit universe size (for testing)."),
+def queue(
+    file: typer.FileText = FileArgument,
     db: Path = DbOption,
 ):
-    """Sync the local world model from WDQS + the Wikidata API."""
-    syncmod.sync(db, limit=limit)
+    """Enqueue proposed edits from a JSON payload (agent-facing)."""
+    text = sys.stdin.read() if file is sys.stdin else file.read()
+    try:
+        payloads = proposals_mod.load(text)
+    except proposals_mod.PayloadError as error:
+        console.print(f"[red]invalid payload:[/] {error}")
+        raise typer.Exit(1) from error
+
+    with dbmod.open_session(db) as session:
+        added, skipped = dbmod.enqueue(session, payloads)
+
+    for proposal in added:
+        console.print(
+            f"[green]+[/] #{proposal.id} {proposal.entity}: {proposal.summary}"
+        )
+    for payload, reason in skipped:
+        console.print(
+            f"[yellow]~[/] {payload['entity']}: {payload['summary']} — {reason}"
+        )
+    console.print(f"queued {len(added)}, skipped {len(skipped)}")
+
+
+@app.command(name="list")
+def list_cmd(
+    status: str = typer.Option(
+        "pending", help="Filter by status: pending|submitted|rejected|stale|all."
+    ),
+    db: Path = DbOption,
+):
+    """List proposals in the queue."""
+    from sqlalchemy import select
+
+    with dbmod.open_session(db) as session:
+        query = select(dbmod.Proposal).order_by(dbmod.Proposal.id)
+        if status != "all":
+            if status not in dbmod.STATUSES:
+                console.print(f"[red]unknown status {status!r}")
+                raise typer.Exit(1)
+            query = query.where(dbmod.Proposal.status == status)
+        rows = list(session.scalars(query))
+
+    if not rows:
+        console.print(f"no {status} proposals")
+        return
+    table = Table("id", "entity", "status", "statements", "summary")
+    for p in rows:
+        statements = ", ".join(f"{s['property']}→{s['value']}" for s in p.statements)
+        table.add_row(str(p.id), p.entity, p.status, statements, p.summary)
+    console.print(table)
 
 
 @app.command()
-def show(qid: str, db: Path = DbOption):
-    """Show the local record for an entity."""
-    qid = qid.upper()
-    con = dbmod.connect(db)
-    try:
-        row = con.execute(
-            """
-            SELECT e.qid, e.en_label, e.en_description, e.is_position, p.links
-            FROM entity e
-            LEFT JOIN position p ON p.qid = e.qid
-            WHERE e.qid = ?
-            """,
-            [qid],
-        ).fetchone()
-        if row is None:
-            console.print(f"[red]{qid} not in local model — run sync first.")
+def show(proposal_id: int, db: Path = DbOption):
+    """Show one proposal in full, including rationale and sources."""
+    with dbmod.open_session(db) as session:
+        p = session.get(dbmod.Proposal, proposal_id)
+    if p is None:
+        console.print(f"[red]no proposal #{proposal_id}")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]#{p.id} {p.entity}[/] \\[{p.status}]")
+    for s in p.statements:
+        console.print(f"  + {s['property']} → {s['value']}")
+    console.print(f"  summary:   {p.summary}")
+    if p.rationale:
+        console.print(f"  rationale: {p.rationale}")
+    for source in p.sources:
+        console.print(f"  source:    {source}")
+    if p.note:
+        console.print(f"  note:      {p.note}")
+    if p.submission_revision_id:
+        console.print(f"  submitted as revision {p.submission_revision_id:,}")
+
+
+@app.command()
+def drop(proposal_id: int, db: Path = DbOption):
+    """Delete a PENDING proposal without leaving a tombstone."""
+    with dbmod.open_session(db) as session:
+        p = session.get(dbmod.Proposal, proposal_id)
+        if p is None:
+            console.print(f"[red]no proposal #{proposal_id}")
             raise typer.Exit(1)
-
-        console.print(f"[bold]{row[0]}[/] {row[1] or ''}")
-        if row[2]:
-            console.print(f"  {row[2]}")
-        if row[3]:
-            console.print(f"  in P39 universe with {row[4]} truthy links")
-
-        claims = con.execute(
-            """
-            SELECT c.property, c.value, c.rank, value_entity.en_label
-            FROM claim c
-            LEFT JOIN entity value_entity ON value_entity.qid = c.value
-            WHERE c.subject = ?
-            ORDER BY c.property, c.value
-            """,
-            [qid],
-        ).fetchall()
-    finally:
-        con.close()
-
-    table = Table("property", "value", "rank")
-    for prop, value, rank, label in claims:
-        table.add_row(prop, f"{value} {label or ''}", rank)
-    console.print(table)
+        if p.status != dbmod.PENDING:
+            console.print(
+                f"[red]#{proposal_id} is {p.status}; only pending proposals can be dropped"
+            )
+            raise typer.Exit(1)
+        session.delete(p)
+        session.commit()
+    console.print(f"dropped #{proposal_id}")
 
 
 if __name__ == "__main__":
