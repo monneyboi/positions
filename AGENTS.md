@@ -6,8 +6,9 @@ edits; a human reviews them in the TUI and only an explicit accept submits.
 
 The local SQLite database holds **proposed edits only** — there is no
 Wikidata mirror and no sync. The agent queries Wikidata itself — SPARQL
-against the QLever mirror, live entity state via `wbgetentities` — plus
-the web. Domain knowledge lives in pi skills under `.pi/skills/`, not in
+against the QLever mirror, which follows the change stream and is seconds
+behind live — plus the web. Authoritative live state (`wbgetentities`) is
+re-checked by the submission path at accept time, not by the agent. Domain knowledge lives in pi skills under `.pi/skills/`, not in
 code.
 
 ## Commands
@@ -41,7 +42,7 @@ src/positions/
   wikidata.py    live duplicate checks and authenticated atomic edits
   db.py          SQLAlchemy/SQLite proposal queue and tombstones
 .pi/skills/
-  propose-edits/             agent workflow: research, verify, queue
+  propose-edits/             agent workflow: research and queue
   wikidata-querying/         QLever SPARQL mirror and live API reference
   wikidata-political-model/  political data modeling reference
   wikidata-labels/           labels, aliases, mul, and fallback reference

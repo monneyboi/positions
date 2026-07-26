@@ -14,9 +14,10 @@ Two read paths with different purposes:
   under a second, with a 600 s timeout). Use it for all candidate
   finding and analysis.
 - **Authoritative live state** → the MediaWiki API on
-  `https://www.wikidata.org/w/api.php`. Always verify against this
-  before queueing a proposal; it is also the only thing the submission
-  path trusts.
+  `https://www.wikidata.org/w/api.php`. The submission path re-fetches
+  live state and re-verifies immediately before editing, so queued
+  proposals need no live pre-check; use this only when you need
+  authoritative state mid-research.
 
 ## Calling the QLever endpoint
 

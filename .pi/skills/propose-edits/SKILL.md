@@ -16,23 +16,19 @@ submits to Wikidata (with a live duplicate check and revision concurrency).
 1. **Find candidates** with SPARQL against the QLever mirror (see the
    `wikidata-querying` skill for the endpoint and how it differs from
    WDQS). Follow the modeling rules in the `wikidata-political-model`
-   skill.
-2. **Verify against live data first.** Before queueing, re-fetch the
-   entity with `wbgetentities`
-   (`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q…&props=info|labels|claims&format=json&formatversion=2`):
-   the statement you want to add must not already exist at any rank, and
-   the facts your rationale depends on must still hold.
-3. **Check the tombstones.** Run `uv run positions list --status all`
-   and do not re-propose anything already rejected or stale. (The queue
-   also skips known fingerprints automatically.)
-4. **Queue the payload** (schema below):
+   skill. The mirror follows Wikidata's change stream and is only
+   seconds behind; do not re-verify against the live API — the
+   authoritative duplicate and staleness check runs at accept time.
+2. **Queue the payload** (schema below):
 
    ```bash
    uv run positions queue proposals.json
    # or pipe: cat proposals.json | uv run positions queue
    ```
 
-5. **Report** what you queued and why, so the human can review quickly.
+   The queue skips payloads whose fingerprint is already known in any
+   status, so a decided edit is never re-queued — read the skip output.
+3. **Report** what you queued and why, so the human can review quickly.
 
 ## Payload schema
 

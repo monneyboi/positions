@@ -10,9 +10,10 @@ with revision-based concurrency.
 
 ## How it works
 
-1. The agent finds improvements (WDQS, `wbgetentities`, official sources),
-   verifies them against live data, and runs
-   `uv run positions queue proposals.json`.
+1. The agent finds improvements (QLever SPARQL mirror, official sources)
+   and runs `uv run positions queue proposals.json`. The mirror follows
+   Wikidata's change stream, so no separate freshness check is needed —
+   live state is verified at accept time.
 2. `positions queue` validates the payload and stores each proposal. Edits
    already known — pending, submitted, rejected, or stale — are skipped by
    fingerprint, so rejected ideas are never proposed again.
