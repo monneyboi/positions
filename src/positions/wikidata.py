@@ -1,21 +1,26 @@
-"""Wikidata live checks and authenticated edits (the review "accept" path).
+"""Authenticated submission to the Wikibase REST API (the review "accept" path).
 
-Nothing here mirrors or caches Wikidata. Immediately before a proposal is
-submitted we re-fetch the live entity, confirm the proposed statements are
-still new, and edit with baserevid for optimistic concurrency.
+A proposal's JSON Patch is self-verifying: its `test` ops pin the live
+state the patch mutates, and the server evaluates the whole patch
+atomically. So there is no client-side pre-flight check — we POST the
+patch verbatim and map the response onto the queue's outcomes:
+
+- 200          → submitted (new revision id from the response ETag)
+- 404/409/412  → the pinned live state changed; the proposal is stale
+- anything else → failed (the proposal stays pending for a human decision)
 """
 
-import json
 import os
 import time
 
 import httpx
 
-API_URL = "https://www.wikidata.org/w/api.php"
-USER_AGENT = "positions/0.2 (personal Wikidata review tool; httpx)"
+API_URL = "https://www.wikidata.org/w/rest.php/wikibase/v1"
+USER_AGENT = "positions/0.3 (personal Wikidata review tool; httpx)"
 
-
-RETRIES = 3  # wbeditentity attempts on transient server errors
+RETRIES = 3  # PATCH attempts on transient server errors
+RETRYABLE = (429, 500, 502, 503, 504)
+STALE_CODES = (404, 409, 412)  # item gone, or a test pin no longer holds
 
 
 class SubmitError(Exception):
@@ -23,7 +28,7 @@ class SubmitError(Exception):
 
 
 class SubmitConflict(Exception):
-    """Live Wikidata state disagrees with the queued proposal."""
+    """Live Wikidata state disagrees with the queued patch (stale)."""
 
 
 def auth_client() -> httpx.Client:
@@ -37,141 +42,40 @@ def auth_client() -> httpx.Client:
     )
 
 
-def _qid_of(claim: dict) -> str | None:
-    datavalue = claim["mainsnak"].get("datavalue")
-    if datavalue is None or datavalue["type"] != "wikibase-entityid":
-        return None
-    return datavalue["value"]["id"]
-
-
-def fetch_live(client: httpx.Client, qid: str) -> dict:
-    """Fetch the raw live entity (info + ALL claims, deprecated included).
-
-    Nothing is filtered: the review safeguard must see statements at every
-    rank before deciding an edit is still valid.
-    """
+def _message(resp: httpx.Response) -> str:
     try:
-        resp = client.get(
-            API_URL,
-            params={
-                "action": "wbgetentities",
-                "ids": qid,
-                "props": "info|claims",
-                "format": "json",
-                "formatversion": "2",
-            },
-        )
-        resp.raise_for_status()
-    except httpx.HTTPError as error:
-        raise SubmitError(f"could not fetch live {qid}: {error}") from error
-    entity = resp.json()["entities"][qid]
-    if "missing" in entity:
-        raise SubmitError(f"{qid} no longer exists on Wikidata")
-    return entity
+        return str(resp.json().get("message", "")) or resp.text[:200]
+    except ValueError:
+        return resp.text[:200]
 
 
-def live_values(entity: dict, prop: str) -> list[tuple[str, str]]:
-    """Live item values of a property at every rank, as (rank, qid) pairs."""
-    return [
-        (claim.get("rank", "normal"), qid)
-        for claim in entity.get("claims", {}).get(prop, [])
-        if (qid := _qid_of(claim)) is not None
-    ]
+def _revision_id(resp: httpx.Response) -> int | None:
+    etag = resp.headers.get("ETag", "").strip('"')
+    return int(etag) if etag.isdigit() else None
 
 
-def verify_live(client: httpx.Client, entity: str, statements: list[dict]) -> int:
-    """Confirm every proposed statement is still new; return the base revision.
-
-    This is the last automated guard before an edit: the human reviewed a
-    proposal, and here we only check that live Wikidata has not gained the
-    same statement — at ANY rank — in the meantime. A deprecated value is
-    still a conflict: someone deliberately marked that value wrong, so
-    re-adding it needs fresh research, not a blind resubmission.
-    """
-    live = fetch_live(client, entity)
-    for statement in statements:
-        prop, value = statement["property"], statement["value"]
-        for rank, qid in live_values(live, prop):
-            if qid == value:
-                raise SubmitConflict(
-                    f"{entity} already has {prop} → {value} at {rank} rank"
-                )
-    return live["lastrevid"]
-
-
-def _csrf_token(client: httpx.Client) -> str:
-    try:
-        resp = client.get(
-            API_URL,
-            params={
-                "action": "query",
-                "meta": "tokens",
-                "type": "csrf",
-                "format": "json",
-            },
-        )
-        resp.raise_for_status()
-    except httpx.HTTPError as error:
-        raise SubmitError(f"could not fetch a CSRF token: {error}") from error
-    return resp.json()["query"]["tokens"]["csrftoken"]
-
-
-def add_item_claims(
-    client: httpx.Client,
-    qid: str,
-    statements: list[dict],
-    baserevid: int,
-    summary: str,
-) -> dict:
-    """Add item-valued claims in ONE atomic wbeditentity edit.
-
-    `baserevid` is the lastrevid of the live entity we just checked, so the
-    edit fails with an edit conflict instead of silently overwriting someone
-    else's change. Returns the response entity (new claim IDs + lastrevid).
-    """
-    claims = [
-        {
-            "mainsnak": {
-                "snaktype": "value",
-                "property": statement["property"],
-                "datavalue": {
-                    "value": {
-                        "entity-type": "item",
-                        "numeric-id": int(statement["value"][1:]),
-                    },
-                    "type": "wikibase-entityid",
-                },
-            },
-            "type": "statement",
-            "rank": "normal",
-        }
-        for statement in statements
-    ]
-    params = {
-        "action": "wbeditentity",
-        "id": qid,
-        "data": json.dumps({"claims": claims}),
-        "baserevid": str(baserevid),
-        "summary": summary,
-        "maxlag": "5",
-        "format": "json",
-        "token": _csrf_token(client),
-    }
+def submit_patch(
+    client: httpx.Client, qid: str, patch: list[dict], comment: str
+) -> int | None:
+    """Submit the patch verbatim; return the new revision id on success."""
+    url = f"{API_URL}/entities/items/{qid}"
+    body = {"patch": patch, "comment": comment}
     for attempt in range(RETRIES):
         try:
-            resp = client.post(API_URL, data=params)
-            if resp.status_code in (429, 500, 502, 503, 504):
-                time.sleep(min(2**attempt * 5, 60))
-                continue
-            resp.raise_for_status()
+            resp = client.patch(url, json=body)
         except httpx.HTTPError as error:
             if attempt + 1 == RETRIES:
                 raise SubmitError(f"Wikidata edit request failed: {error}") from error
             time.sleep(min(2**attempt * 5, 60))
             continue
-        data = resp.json()
-        if "error" in data:
-            info = data["error"].get("info", data["error"].get("code", "unknown"))
-            raise SubmitError(f"Wikidata rejected the edit: {info}")
-        return data["entity"]
+        if resp.status_code == 200:
+            return _revision_id(resp)
+        if resp.status_code in STALE_CODES:
+            raise SubmitConflict(_message(resp))
+        if resp.status_code in RETRYABLE and attempt + 1 < RETRIES:
+            time.sleep(min(2**attempt * 5, 60))
+            continue
+        raise SubmitError(
+            f"Wikidata rejected the edit ({resp.status_code}): {_message(resp)}"
+        )
     raise SubmitError(f"Wikidata edit failed after {RETRIES} attempts (server busy)")

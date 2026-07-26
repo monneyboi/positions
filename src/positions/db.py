@@ -34,8 +34,8 @@ class Proposal(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     entity: Mapped[str]
     fingerprint: Mapped[str] = mapped_column(unique=True)
-    statements: Mapped[list[dict]] = mapped_column(JSON)
-    summary: Mapped[str]
+    patch: Mapped[list[dict]] = mapped_column(JSON)
+    comment: Mapped[str]
     rationale: Mapped[str] = mapped_column(default="")
     sources: Mapped[list[str]] = mapped_column(JSON, default=list)
     status: Mapped[str] = mapped_column(default=PENDING, index=True)
@@ -45,15 +45,9 @@ class Proposal(Base):
     submission_revision_id: Mapped[int | None] = mapped_column(default=None)
 
 
-def fingerprint(entity: str, statements: list[dict]) -> str:
-    """Stable identity of an edit: same entity + statements, same fingerprint."""
-    canonical = json.dumps(
-        {
-            "entity": entity,
-            "statements": sorted(statements, key=lambda s: (s["property"], s["value"])),
-        },
-        sort_keys=True,
-    )
+def fingerprint(entity: str, patch: list[dict]) -> str:
+    """Stable identity of an edit: same entity + patch, same fingerprint."""
+    canonical = json.dumps({"entity": entity, "patch": patch}, sort_keys=True)
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
@@ -75,7 +69,7 @@ def enqueue(
     added: list[Proposal] = []
     skipped: list[tuple[dict, str]] = []
     for payload in payloads:
-        fp = fingerprint(payload["entity"], payload["statements"])
+        fp = fingerprint(payload["entity"], payload["patch"])
         existing = session.scalar(select(Proposal).where(Proposal.fingerprint == fp))
         if existing is not None:
             skipped.append((payload, f"already {existing.status} as #{existing.id}"))
@@ -83,8 +77,8 @@ def enqueue(
         proposal = Proposal(
             entity=payload["entity"],
             fingerprint=fp,
-            statements=payload["statements"],
-            summary=payload["summary"],
+            patch=payload["patch"],
+            comment=payload["comment"],
             rationale=payload.get("rationale", ""),
             sources=payload.get("sources", []),
         )
@@ -116,6 +110,8 @@ def decide(
     session.commit()
 
 
-def record_submission(session: Session, proposal: Proposal, revision_id: int) -> None:
+def record_submission(
+    session: Session, proposal: Proposal, revision_id: int | None
+) -> None:
     proposal.submission_revision_id = revision_id
     decide(session, proposal, SUBMITTED)

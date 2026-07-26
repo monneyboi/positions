@@ -1,16 +1,20 @@
 """Textual TUI for reviewing queued proposals.
 
 Proposals come from the queue (`positions queue`); the TUI never generates
-them. Live Wikidata is only touched on accept: the entity is re-fetched, the
-proposed statements are checked against every live rank, and the edit is
-submitted atomically with baserevid concurrency. Terminal states stay in the
-proposal table as tombstones; the app itself only touches the database on
-the main thread.
+them. Live Wikidata is only touched on accept: the proposal's JSON Patch is
+POSTed verbatim to the REST API, and its own `test` pins make the server
+reject with a 409 if live state drifted — the proposal then goes stale
+instead of editing the wrong thing. Terminal states stay in the proposal
+table as tombstones; the app itself only touches the database on the main
+thread.
 """
 
+import json
 from pathlib import Path
 from typing import ClassVar
 
+from rich.console import Group
+from rich.json import JSON
 from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
@@ -25,7 +29,7 @@ from . import wikidata
 class Submitted(Message):
     """The edit was accepted by Wikidata."""
 
-    def __init__(self, proposal_id: int, revision_id: int) -> None:
+    def __init__(self, proposal_id: int, revision_id: int | None) -> None:
         super().__init__()
         self.proposal_id = proposal_id
         self.revision_id = revision_id
@@ -49,16 +53,17 @@ class SubmitFailed(Message):
         self.reason = reason
 
 
-def render_proposal(p: dbmod.Proposal) -> Text:
-    statements = "\n".join(
-        f"[green]+ {s['property']}[/] → {s['value']}" for s in p.statements
-    )
-    lines = [f"[bold]{p.entity}[/] — {p.summary}", "", statements]
-    if p.rationale:
-        lines += ["", f"rationale: {p.rationale}"]
-    for source in p.sources:
-        lines.append(f"source: {source}")
-    return Text.from_markup("\n".join(lines))
+def render_proposal(p: dbmod.Proposal) -> Group:
+    """The proposal exactly as it will be sent: header, raw patch, metadata."""
+    parts: list = [
+        Text.from_markup(f"[bold]{p.entity}[/] — {p.comment}"),
+        JSON(json.dumps(p.patch)),
+    ]
+    footer = [f"rationale: {p.rationale}"] if p.rationale else []
+    footer += [f"source: {source}" for source in p.sources]
+    if footer:
+        parts.append(Text.from_markup("\n".join(footer)))
+    return Group(*parts)
 
 
 class PositionsApp(App):
@@ -155,7 +160,7 @@ class PositionsApp(App):
         self.busy = True
         self._set_status(f"Submitting #{proposal.id} {proposal.entity}…")
         self.submit_worker(
-            proposal.id, proposal.entity, proposal.statements, proposal.summary
+            proposal.id, proposal.entity, proposal.patch, proposal.comment
         )
 
     def action_discard(self) -> None:
@@ -182,20 +187,17 @@ class PositionsApp(App):
 
     @work(thread=True)
     def submit_worker(
-        self, proposal_id: int, entity: str, statements: list[dict], summary: str
+        self, proposal_id: int, entity: str, patch: list[dict], comment: str
     ) -> None:
         try:
             with wikidata.auth_client() as client:
-                baserevid = wikidata.verify_live(client, entity, statements)
-                response = wikidata.add_item_claims(
-                    client, entity, statements, baserevid=baserevid, summary=summary
-                )
+                revision_id = wikidata.submit_patch(client, entity, patch, comment)
         except wikidata.SubmitConflict as error:
             self.post_message(SubmitStale(proposal_id, str(error)))
         except wikidata.SubmitError as error:
             self.post_message(SubmitFailed(proposal_id, str(error)))
         else:
-            self.post_message(Submitted(proposal_id, response["lastrevid"]))
+            self.post_message(Submitted(proposal_id, revision_id))
 
     # Worker results
 
@@ -208,10 +210,12 @@ class PositionsApp(App):
     def on_submitted(self, message: Submitted) -> None:
         proposal = self._reload(message.proposal_id)
         dbmod.record_submission(self.session, proposal, message.revision_id)
-        self._log(
-            f"[green]✓[/] submitted #{proposal.id} {proposal.entity}"
+        revision = (
             f" — revision {message.revision_id:,}"
+            if message.revision_id is not None
+            else ""
         )
+        self._log(f"[green]✓[/] submitted #{proposal.id} {proposal.entity}{revision}")
         self.busy = False
         self._show_current()
 

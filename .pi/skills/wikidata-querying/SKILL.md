@@ -13,11 +13,11 @@ Two read paths with different purposes:
   official WDQS (queries that time out there in 60 s run here in well
   under a second, with a 600 s timeout). Use it for all candidate
   finding and analysis.
-- **Authoritative live state** → the MediaWiki API on
-  `https://www.wikidata.org/w/api.php`. The submission path re-fetches
-  live state and re-verifies immediately before editing, so queued
-  proposals need no live pre-check; use this only when you need
-  authoritative state mid-research.
+- **Authoritative live state** → the Wikibase REST API at
+  `https://www.wikidata.org/w/rest.php/wikibase/v1`. The submission path
+  verifies nothing client-side (the patch's own `test` ops are checked
+  server-side), so queued proposals need no live pre-check; use this
+  when you need authoritative state mid-research or to build a patch.
 
 ## Calling the QLever endpoint
 
@@ -96,12 +96,14 @@ Most SPARQL examples on the web target WDQS. When porting them:
 
 ## Live entity data
 
-For the current state of one entity use `wbgetentities`:
+For the current state of one entity, GET it from the REST API:
 
-```text
-https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q…&props=info|labels|claims&format=json&formatversion=2
+```bash
+curl -s https://www.wikidata.org/w/rest.php/wikibase/v1/entities/items/Q…
 ```
 
-`formatversion=2` returns `entities` as a QID-keyed map. The claims
-include all ranks — when checking whether a statement already exists,
-inspect preferred, normal, **and deprecated** statements.
+The response is the document a JSON Patch addresses (see the
+`propose-edits` skill): positional paths like `/statements/P39/2` index
+into its `statements` arrays, and each statement's `id` is the strongest
+pin for a `test` op. Statements at every rank — preferred, normal, and
+deprecated — are included.

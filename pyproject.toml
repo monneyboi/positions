@@ -1,6 +1,6 @@
 [project]
 name = "positions"
-version = "0.2.0"
+version = "0.3.0"
 description = "Personal human-reviewed queue for Wikidata edits to political positions"
 requires-python = ">=3.12"
 dependencies = [

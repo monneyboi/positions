@@ -1,10 +1,12 @@
 """positions CLI: queue proposed edits, inspect the queue, and review them."""
 
+import json
 from pathlib import Path
 
 import typer
 from dotenv import load_dotenv
 from rich.console import Console
+from rich.json import JSON
 from rich.table import Table
 
 from . import db as dbmod
@@ -25,16 +27,18 @@ load_dotenv()
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, db: Path = DbOption):
     """Review queued proposals one at a time; accept pushes to Wikidata."""
+    ctx.obj = db
     if ctx.invoked_subcommand is None:
         tui.review(db)
 
 
 @app.command()
 def queue(
+    ctx: typer.Context,
     file: typer.FileText = FileArgument,
-    db: Path = DbOption,
 ):
     """Enqueue proposed edits from a JSON payload (agent-facing)."""
+    db: Path = ctx.obj
     try:
         payloads = proposals_mod.load(file.read())
     except proposals_mod.PayloadError as error:
@@ -46,23 +50,24 @@ def queue(
 
     for proposal in added:
         console.print(
-            f"[green]+[/] #{proposal.id} {proposal.entity}: {proposal.summary}"
+            f"[green]+[/] #{proposal.id} {proposal.entity}: {proposal.comment}"
         )
     for payload, reason in skipped:
         console.print(
-            f"[yellow]~[/] {payload['entity']}: {payload['summary']} — {reason}"
+            f"[yellow]~[/] {payload['entity']}: {payload['comment']} — {reason}"
         )
     console.print(f"queued {len(added)}, skipped {len(skipped)}")
 
 
 @app.command(name="list")
 def list_cmd(
+    ctx: typer.Context,
     status: str = typer.Option(
         "pending", help="Filter by status: pending|submitted|rejected|stale|all."
     ),
-    db: Path = DbOption,
 ):
     """List proposals in the queue."""
+    db: Path = ctx.obj
     if status != "all" and status not in dbmod.STATUSES:
         console.print(f"[red]unknown status {status!r}")
         raise typer.Exit(1)
@@ -72,16 +77,16 @@ def list_cmd(
     if not rows:
         console.print(f"no {status} proposals")
         return
-    table = Table("id", "entity", "status", "statements", "summary")
+    table = Table("id", "entity", "status", "ops", "comment")
     for p in rows:
-        statements = ", ".join(f"{s['property']}→{s['value']}" for s in p.statements)
-        table.add_row(str(p.id), p.entity, p.status, statements, p.summary)
+        table.add_row(str(p.id), p.entity, p.status, str(len(p.patch)), p.comment)
     console.print(table)
 
 
 @app.command()
-def show(proposal_id: int, db: Path = DbOption):
+def show(ctx: typer.Context, proposal_id: int):
     """Show one proposal in full, including rationale and sources."""
+    db: Path = ctx.obj
     with dbmod.open_session(db) as session:
         p = session.get(dbmod.Proposal, proposal_id)
     if p is None:
@@ -89,9 +94,8 @@ def show(proposal_id: int, db: Path = DbOption):
         raise typer.Exit(1)
 
     console.print(f"[bold]#{p.id} {p.entity}[/] \\[{p.status}]")
-    for s in p.statements:
-        console.print(f"  + {s['property']} → {s['value']}")
-    console.print(f"  summary:   {p.summary}")
+    console.print(JSON(json.dumps(p.patch)))
+    console.print(f"  comment:   {p.comment}")
     if p.rationale:
         console.print(f"  rationale: {p.rationale}")
     for source in p.sources:
@@ -103,8 +107,9 @@ def show(proposal_id: int, db: Path = DbOption):
 
 
 @app.command()
-def drop(proposal_id: int, db: Path = DbOption):
+def drop(ctx: typer.Context, proposal_id: int):
     """Delete a PENDING proposal without leaving a tombstone."""
+    db: Path = ctx.obj
     with dbmod.open_session(db) as session:
         p = session.get(dbmod.Proposal, proposal_id)
         if p is None:

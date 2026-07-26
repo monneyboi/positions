@@ -5,22 +5,21 @@ A small human-in-the-loop queue for improving political positions on Wikidata.
 An agent (pi, with the skills in `.pi/skills/`) researches Wikidata and the
 web and queues proposed edits as JSON. The local database holds **proposed
 edits only** — no Wikidata mirror. A human reviews each proposal in the TUI;
-only an explicit accept submits to Wikidata, after a live duplicate check and
-with revision-based concurrency.
+only an explicit accept submits to Wikidata, where the proposal's own JSON
+Patch is evaluated atomically against live state.
 
 ## How it works
 
 1. The agent finds improvements (QLever SPARQL mirror, official sources)
-   and runs `uv run positions queue proposals.json`. The mirror follows
-   Wikidata's change stream, so no separate freshness check is needed —
-   live state is verified at accept time.
-2. `positions queue` validates the payload and stores each proposal. Edits
-   already known — pending, submitted, rejected, or stale — are skipped by
+   and runs `uv run positions queue proposals.json`.
+2. `positions queue` validates the payload structurally (it is an RFC 6902
+   JSON Patch plus review metadata) and stores each proposal. Edits already
+   known — pending, submitted, rejected, or stale — are skipped by
    fingerprint, so rejected ideas are never proposed again.
-3. Running `positions` opens the review TUI: accept submits the proposal's
-   statements in one atomic, `baserevid`-guarded edit; discard leaves a
-   tombstone; a live state change marks the proposal stale instead of
-   editing.
+3. Running `positions` opens the review TUI: accept POSTs the patch
+   verbatim to the Wikibase REST API; discard leaves a tombstone. If live
+   state drifted so the patch no longer applies (404/409/412), the
+   proposal is marked stale instead of editing.
 
 Nothing is ever submitted without an explicit human accept.
 
@@ -49,8 +48,12 @@ uv run positions --db /tmp/smoke.sqlite # any command works on a scratch DB
   "proposals": [
     {
       "entity": "Q123456",
-      "statements": [{"property": "P17", "value": "Q33"}],
-      "summary": "Minister of Agriculture of Finland: add country Finland",
+      "patch": [
+        {"op": "test", "path": "/statements/P39/2/id", "value": "Q123456$…"},
+        {"op": "replace", "path": "/statements/P39/2/rank", "value": "deprecated"},
+        {"op": "add", "path": "/statements/P17/-", "value": {"property": {"id": "P17"}, "value": {"type": "value", "content": "Q33"}, "rank": "normal"}}
+      ],
+      "comment": "deprecate wrong officeholder; add country Finland",
       "rationale": "…why this is correct…",
       "sources": ["https://…"]
     }
@@ -58,5 +61,7 @@ uv run positions --db /tmp/smoke.sqlite # any command works on a scratch DB
 }
 ```
 
-Add-only, item-valued statements; one proposal edits one entity atomically.
+One proposal edits one entity; `patch` and `comment` go verbatim into the
+Wikibase REST API's `PATCH /v1/entities/items/{id}` call. `rationale` is
+required when the patch changes existing state.
 See `.pi/skills/propose-edits/SKILL.md` for the full agent contract.
