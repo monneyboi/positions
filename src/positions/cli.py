@@ -50,11 +50,13 @@ def queue(
 
     for proposal in added:
         console.print(
-            f"[green]+[/] #{proposal.id} {proposal.entity}: {proposal.comment}"
+            f"[green]+[/] #{proposal.id} {dbmod.display_name(proposal)}: "
+            f"{proposal.comment}"
         )
     for payload, reason in skipped:
         console.print(
-            f"[yellow]~[/] {payload['entity']}: {payload['comment']} — {reason}"
+            f"[yellow]~[/] {payload['entity'] or 'new item'}: "
+            f"{payload['comment']} — {reason}"
         )
     console.print(f"queued {len(added)}, skipped {len(skipped)}")
 
@@ -79,7 +81,8 @@ def list_cmd(
         return
     table = Table("id", "entity", "status", "ops", "comment")
     for p in rows:
-        table.add_row(str(p.id), p.entity, p.status, str(len(p.patch)), p.comment)
+        ops = str(len(p.payload)) if p.kind == proposals_mod.PATCH else "—"
+        table.add_row(str(p.id), dbmod.display_name(p), p.status, ops, p.comment)
     console.print(table)
 
 
@@ -93,8 +96,8 @@ def show(ctx: typer.Context, proposal_id: int):
         console.print(f"[red]no proposal #{proposal_id}")
         raise typer.Exit(1)
 
-    console.print(f"[bold]#{p.id} {p.entity}[/] \\[{p.status}]")
-    console.print(JSON(json.dumps(p.patch)))
+    console.print(f"[bold]#{p.id} {dbmod.display_name(p)}[/] \\[{p.status}] {p.kind}")
+    console.print(JSON(json.dumps(p.payload)))
     console.print(f"  comment:   {p.comment}")
     if p.rationale:
         console.print(f"  rationale: {p.rationale}")
@@ -102,8 +105,6 @@ def show(ctx: typer.Context, proposal_id: int):
         console.print(f"  source:    {source}")
     if p.note:
         console.print(f"  note:      {p.note}")
-    if p.submission_revision_id:
-        console.print(f"  submitted as revision {p.submission_revision_id:,}")
 
 
 @app.command()

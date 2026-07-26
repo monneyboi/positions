@@ -19,7 +19,7 @@ DEFAULT_DB = Path("positions.sqlite")
 PENDING = "pending"
 SUBMITTED = "submitted"
 REJECTED = "rejected"
-STALE = "stale"  # live Wikidata changed so the proposal no longer applies
+STALE = "stale"  # live Wikidata changed so a patch no longer applies
 
 STATUSES = (PENDING, SUBMITTED, REJECTED, STALE)
 
@@ -32,9 +32,10 @@ class Proposal(Base):
     __tablename__ = "proposal"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    entity: Mapped[str]
+    kind: Mapped[str]  # proposals.PATCH | proposals.CREATE
+    entity: Mapped[str | None]  # QID; a create learns its QID on submission
     fingerprint: Mapped[str] = mapped_column(unique=True)
-    patch: Mapped[list[dict]] = mapped_column(JSON)
+    payload: Mapped[list[dict] | dict] = mapped_column(JSON)  # patch | item doc
     comment: Mapped[str]
     rationale: Mapped[str] = mapped_column(default="")
     sources: Mapped[list[str]] = mapped_column(JSON, default=list)
@@ -42,13 +43,19 @@ class Proposal(Base):
     note: Mapped[str | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     decided_at: Mapped[datetime | None] = mapped_column(default=None)
-    submission_revision_id: Mapped[int | None] = mapped_column(default=None)
 
 
-def fingerprint(entity: str, patch: list[dict]) -> str:
-    """Stable identity of an edit: same entity + patch, same fingerprint."""
-    canonical = json.dumps({"entity": entity, "patch": patch}, sort_keys=True)
+def fingerprint(kind: str, entity: str | None, payload: object) -> str:
+    """Stable identity of an edit: same kind + entity + payload → same fingerprint."""
+    canonical = json.dumps(
+        {"kind": kind, "entity": entity, "payload": payload}, sort_keys=True
+    )
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
+def display_name(proposal: Proposal) -> str:
+    """How lists and logs refer to a proposal: QID, or 'new item' pre-creation."""
+    return proposal.entity or "new item"
 
 
 def open_session(db_path: Path | str = DEFAULT_DB) -> Session:
@@ -58,7 +65,7 @@ def open_session(db_path: Path | str = DEFAULT_DB) -> Session:
 
 
 def enqueue(
-    session: Session, payloads: list[dict]
+    session: Session, proposals: list[dict]
 ) -> tuple[list[Proposal], list[tuple[dict, str]]]:
     """Insert validated payloads; skip payloads whose fingerprint is known.
 
@@ -68,19 +75,20 @@ def enqueue(
     """
     added: list[Proposal] = []
     skipped: list[tuple[dict, str]] = []
-    for payload in payloads:
-        fp = fingerprint(payload["entity"], payload["patch"])
+    for data in proposals:
+        fp = fingerprint(data["kind"], data["entity"], data["payload"])
         existing = session.scalar(select(Proposal).where(Proposal.fingerprint == fp))
         if existing is not None:
-            skipped.append((payload, f"already {existing.status} as #{existing.id}"))
+            skipped.append((data, f"already {existing.status} as #{existing.id}"))
             continue
         proposal = Proposal(
-            entity=payload["entity"],
+            kind=data["kind"],
+            entity=data["entity"],
             fingerprint=fp,
-            patch=payload["patch"],
-            comment=payload["comment"],
-            rationale=payload.get("rationale", ""),
-            sources=payload.get("sources", []),
+            payload=data["payload"],
+            comment=data["comment"],
+            rationale=data["rationale"],
+            sources=data["sources"],
         )
         session.add(proposal)
         added.append(proposal)
@@ -111,7 +119,9 @@ def decide(
 
 
 def record_submission(
-    session: Session, proposal: Proposal, revision_id: int | None
+    session: Session, proposal: Proposal, created_entity: str | None = None
 ) -> None:
-    proposal.submission_revision_id = revision_id
+    """Mark a proposal submitted; a create learns its new QID here."""
+    if created_entity is not None:
+        proposal.entity = created_entity
     decide(session, proposal, SUBMITTED)

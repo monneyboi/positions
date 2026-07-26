@@ -106,4 +106,5 @@ The response is the document a JSON Patch addresses (see the
 `propose-edits` skill): positional paths like `/statements/P39/2` index
 into its `statements` arrays, and each statement's `id` is the strongest
 pin for a `test` op. Statements at every rank — preferred, normal, and
-deprecated — are included.
+deprecated — are included. When proposing a new item (a create), GET a
+similar existing item and copy its statement shapes.
