@@ -95,11 +95,15 @@ def enqueue(
 
 
 def pending(session: Session) -> list[Proposal]:
-    return list(
-        session.scalars(
-            select(Proposal).where(Proposal.status == PENDING).order_by(Proposal.id)
-        )
-    )
+    return by_status(session, PENDING)
+
+
+def by_status(session: Session, status: str | None) -> list[Proposal]:
+    """All proposals, oldest first, optionally filtered to one status."""
+    query = select(Proposal).order_by(Proposal.id)
+    if status is not None:
+        query = query.where(Proposal.status == status)
+    return list(session.scalars(query))
 
 
 def decide(

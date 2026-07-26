@@ -23,12 +23,8 @@ class SubmitConflict(Exception):
     """Live Wikidata state disagrees with the queued proposal."""
 
 
-def access_token() -> str | None:
-    return os.environ.get("WIKIDATA_ACCESS_TOKEN")
-
-
 def _auth_client() -> httpx.Client:
-    token = access_token()
+    token = os.environ.get("WIKIDATA_ACCESS_TOKEN")
     if not token:
         raise SubmitError("WIKIDATA_ACCESS_TOKEN is not set (see .env.example)")
     return httpx.Client(
@@ -43,11 +39,6 @@ def _qid_of(claim: dict) -> str | None:
     if datavalue is None or datavalue["type"] != "wikibase-entityid":
         return None
     return datavalue["value"]["id"]
-
-
-def claim_item_value(claim: dict) -> str | None:
-    """Return the item QID of a value snak, or None for another snak type."""
-    return _qid_of(claim)
 
 
 def fetch_live(client: httpx.Client, qid: str) -> dict:
@@ -81,8 +72,7 @@ def non_deprecated_values(entity: dict, prop: str) -> list[str]:
     return [
         qid
         for claim in entity.get("claims", {}).get(prop, [])
-        if claim.get("rank") != "deprecated"
-        and (qid := claim_item_value(claim)) is not None
+        if claim.get("rank") != "deprecated" and (qid := _qid_of(claim)) is not None
     ]
 
 

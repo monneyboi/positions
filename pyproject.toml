@@ -1,7 +1,7 @@
 [project]
 name = "positions"
 version = "0.1.0"
-description = "Personal low-level tool for auditing and improving political positions on Wikidata"
+description = "Personal human-reviewed queue for Wikidata edits to political positions"
 requires-python = ">=3.12"
 dependencies = [
     "sqlalchemy>=2.0",

@@ -1,6 +1,5 @@
 """positions CLI: queue proposed edits, inspect the queue, and review them."""
 
-import sys
 from pathlib import Path
 
 import typer
@@ -18,7 +17,7 @@ app = typer.Typer(
 console = Console()
 
 FileArgument = typer.Argument("-", help="JSON payload file, or stdin.")
-DbOption = typer.Option(Path("positions.sqlite"), "--db", help="SQLite file path.")
+DbOption = typer.Option(dbmod.DEFAULT_DB, "--db", help="SQLite file path.")
 
 load_dotenv()
 
@@ -36,9 +35,8 @@ def queue(
     db: Path = DbOption,
 ):
     """Enqueue proposed edits from a JSON payload (agent-facing)."""
-    text = sys.stdin.read() if file is sys.stdin else file.read()
     try:
-        payloads = proposals_mod.load(text)
+        payloads = proposals_mod.load(file.read())
     except proposals_mod.PayloadError as error:
         console.print(f"[red]invalid payload:[/] {error}")
         raise typer.Exit(1) from error
@@ -65,16 +63,11 @@ def list_cmd(
     db: Path = DbOption,
 ):
     """List proposals in the queue."""
-    from sqlalchemy import select
-
+    if status != "all" and status not in dbmod.STATUSES:
+        console.print(f"[red]unknown status {status!r}")
+        raise typer.Exit(1)
     with dbmod.open_session(db) as session:
-        query = select(dbmod.Proposal).order_by(dbmod.Proposal.id)
-        if status != "all":
-            if status not in dbmod.STATUSES:
-                console.print(f"[red]unknown status {status!r}")
-                raise typer.Exit(1)
-            query = query.where(dbmod.Proposal.status == status)
-        rows = list(session.scalars(query))
+        rows = dbmod.by_status(session, None if status == "all" else status)
 
     if not rows:
         console.print(f"no {status} proposals")

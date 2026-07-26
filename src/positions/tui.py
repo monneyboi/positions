@@ -31,7 +31,7 @@ class Submitted(Message):
         self.revision_id = revision_id
 
 
-class SubmitSkipped(Message):
+class SubmitStale(Message):
     """An accept found changed live state; the proposal went stale."""
 
     def __init__(self, proposal_id: int, reason: str) -> None:
@@ -62,7 +62,7 @@ def render_proposal(p: dbmod.Proposal) -> Text:
 
 
 class PositionsApp(App):
-    """Review loop over the pending proposals queued at startup."""
+    """Review loop over the live pending-proposal queue."""
 
     TITLE = "positions"
     CSS = """
@@ -130,8 +130,8 @@ class PositionsApp(App):
 
     def _show_current(self) -> None:
         panel = self.query_one("#proposal", Static)
-        proposal = self.current
-        if proposal is None:
+        proposals = dbmod.pending(self.session) if self.session else []
+        if not proposals:
             panel.update(Text("No pending proposals."))
             panel.border_title = "done"
             self._set_status(
@@ -139,14 +139,10 @@ class PositionsApp(App):
                 "press r to refresh or q to quit."
             )
             return
-        assert self.session is not None
+        proposal = proposals[0]
         panel.update(render_proposal(proposal))
-        count = len(dbmod.pending(self.session))
-        panel.border_title = f"#{proposal.id} — {count:,} pending"
+        panel.border_title = f"#{proposal.id} — {len(proposals):,} pending"
         self._set_status("")
-
-    def _advance(self) -> None:
-        self._show_current()
 
     # Actions
 
@@ -170,7 +166,7 @@ class PositionsApp(App):
             return
         dbmod.decide(self.session, proposal, dbmod.REJECTED)
         self._log(f"[red]✗[/] discarded #{proposal.id} {proposal.entity}")
-        self._advance()
+        self._show_current()
 
     def action_refresh(self) -> None:
         if not self.busy:
@@ -195,7 +191,7 @@ class PositionsApp(App):
                     client, entity, statements, baserevid=baserevid, summary=summary
                 )
         except wikidata.SubmitConflict as error:
-            self.post_message(SubmitSkipped(proposal_id, str(error)))
+            self.post_message(SubmitStale(proposal_id, str(error)))
         except wikidata.SubmitError as error:
             self.post_message(SubmitFailed(proposal_id, str(error)))
         else:
@@ -217,16 +213,16 @@ class PositionsApp(App):
             f" — revision {message.revision_id:,}"
         )
         self.busy = False
-        self._advance()
+        self._show_current()
 
-    def on_submit_skipped(self, message: SubmitSkipped) -> None:
+    def on_submit_stale(self, message: SubmitStale) -> None:
         proposal = self._reload(message.proposal_id)
         dbmod.decide(self.session, proposal, dbmod.STALE, message.reason)
         self._log(
             f"[yellow]⚠[/] stale #{proposal.id} {proposal.entity}: {message.reason}"
         )
         self.busy = False
-        self._advance()
+        self._show_current()
 
     def on_submit_failed(self, message: SubmitFailed) -> None:
         proposal = self._reload(message.proposal_id)
