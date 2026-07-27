@@ -1,15 +1,17 @@
 """Local proposal queue: SQLite via SQLAlchemy.
 
 The database holds proposed edits only — never a mirror of Wikidata.
-Proposals arrive through `positions queue`, a human decides each one in the
-review TUI, and the terminal states (submitted/rejected/stale) stay in the
-table as tombstones so the same edit is never proposed again.
+Edits arrive through `positions queue` in batches (one rationale over
+one or more edits), a human decides each batch in the review TUI, and
+the terminal states (submitted/rejected/stale) stay in the table as
+tombstones so the same edit is never proposed again.
 """
 
 import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from sqlalchemy import JSON, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -32,13 +34,12 @@ class Proposal(Base):
     __tablename__ = "proposal"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    batch: Mapped[str] = mapped_column(index=True)  # key grouping one queued batch
     kind: Mapped[str]  # proposals.PATCH | proposals.CREATE
     entity: Mapped[str | None]  # QID; a create learns its QID on submission
     fingerprint: Mapped[str] = mapped_column(unique=True)
     payload: Mapped[list[dict] | dict] = mapped_column(JSON)  # patch | item doc
-    comment: Mapped[str]
-    rationale: Mapped[str] = mapped_column(default="")
-    sources: Mapped[list[str]] = mapped_column(JSON, default=list)
+    rationale: Mapped[str]  # the batch's shared rationale
     status: Mapped[str] = mapped_column(default=PENDING, index=True)
     note: Mapped[str | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
@@ -65,39 +66,49 @@ def open_session(db_path: Path | str = DEFAULT_DB) -> Session:
 
 
 def enqueue(
-    session: Session, proposals: list[dict]
+    session: Session, batches: list[dict]
 ) -> tuple[list[Proposal], list[tuple[dict, str]]]:
-    """Insert validated payloads; skip payloads whose fingerprint is known.
+    """Insert validated batches; skip edits whose fingerprint is known.
 
-    Returns (added, skipped) where skipped entries are (payload, reason).
-    A fingerprint known in ANY status is skipped: pending ones are already
+    Each batch gets a fresh key grouping its edits for review. Returns
+    (added, skipped) where skipped entries are (edit, reason). A
+    fingerprint known in ANY status is skipped: pending ones are already
     queued, the rest are tombstones of past human decisions.
     """
     added: list[Proposal] = []
     skipped: list[tuple[dict, str]] = []
-    for data in proposals:
-        fp = fingerprint(data["kind"], data["entity"], data["payload"])
-        existing = session.scalar(select(Proposal).where(Proposal.fingerprint == fp))
-        if existing is not None:
-            skipped.append((data, f"already {existing.status} as #{existing.id}"))
-            continue
-        proposal = Proposal(
-            kind=data["kind"],
-            entity=data["entity"],
-            fingerprint=fp,
-            payload=data["payload"],
-            comment=data["comment"],
-            rationale=data["rationale"],
-            sources=data["sources"],
-        )
-        session.add(proposal)
-        added.append(proposal)
+    for batch in batches:
+        key = uuid4().hex[:8]
+        for edit in batch["edits"]:
+            fp = fingerprint(edit["kind"], edit["entity"], edit["payload"])
+            existing = session.scalar(select(Proposal).where(Proposal.fingerprint == fp))
+            if existing is not None:
+                skipped.append((edit, f"already {existing.status} as #{existing.id}"))
+                continue
+            proposal = Proposal(
+                batch=key,
+                kind=edit["kind"],
+                entity=edit["entity"],
+                fingerprint=fp,
+                payload=edit["payload"],
+                rationale=batch["rationale"],
+            )
+            session.add(proposal)
+            added.append(proposal)
     session.commit()
     return added, skipped
 
 
 def pending(session: Session) -> list[Proposal]:
     return by_status(session, PENDING)
+
+
+def pending_batches(session: Session) -> list[tuple[str, list[Proposal]]]:
+    """Pending proposals grouped by batch key, oldest batch first."""
+    groups: dict[str, list[Proposal]] = {}
+    for proposal in pending(session):
+        groups.setdefault(proposal.batch, []).append(proposal)
+    return list(groups.items())
 
 
 def by_status(session: Session, status: str | None) -> list[Proposal]:

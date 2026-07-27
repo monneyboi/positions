@@ -1,44 +1,43 @@
 """Validation of the queue JSON payload the agent hands to `positions queue`.
 
-A proposal is ONE of two kinds, each submitted verbatim to the Wikibase
-REST API — atomically or not at all:
+The payload is ONE batch or a list of batches. A batch is one rationale
+plus a non-empty list of edits — the human reviews and decides the batch
+as a unit. An edit is one of two kinds, each submitted verbatim to the
+Wikibase REST API — atomically or not at all:
 
 - "patch":  one entity QID plus an RFC 6902 JSON Patch, sent to
   `PATCH /v1/entities/items/{id}`
 - "create": one new-item document, sent to `POST /v1/entities/items`
 
-plus review metadata for the human. Validation here is structural only —
-kinds, required fields, op names, JSON Pointers, item sections. Whether a
-payload is *wise* (test pins, deprecate-vs-remove, is the item really
-missing) is agent guidance in the propose-edits skill.
+The rationale is the only metadata: it is what the human verifies
+against, shared by every edit in the batch. Validation here is
+structural only — kinds, required fields, op names, JSON Pointers, item
+sections. Whether a payload is *wise* (test pins, deprecate-vs-remove,
+references on added statements, is the item really missing) is agent
+guidance in the propose-edits skill.
 
     {
-      "proposals": [
+      "rationale": "why these edits are correct — what the human verifies",
+      "edits": [
         {
           "kind": "patch",
           "entity": "Q123",
           "patch": [
             {"op": "test", "path": "/statements/P39/2/id", "value": "Q123$…"},
             {"op": "replace", "path": "/statements/P39/2/rank", "value": "deprecated"}
-          ],
-          "comment": "deprecate wrong officeholder",
-          "rationale": "why this is correct",
-          "sources": ["https://..."]
+          ]
         },
         {
           "kind": "create",
           "item": {
             "labels": {"en": "Minister of Finance of Finland"},
             "statements": {"P31": [{"property": {"id": "P31"}, "value": …}]}
-          },
-          "comment": "create Minister of Finance of Finland",
-          "rationale": "why this item is missing and needed",
-          "sources": ["https://..."]
+          }
         }
       ]
     }
 
-A bare JSON list of proposals is also accepted.
+A bare JSON list of batch objects is also accepted.
 """
 
 import json
@@ -51,7 +50,6 @@ CREATE = "create"
 KINDS = (PATCH, CREATE)
 
 OPS = ("add", "remove", "replace", "move", "copy", "test")
-EXISTING_STATE_OPS = ("remove", "replace", "move", "copy")
 ITEM_SECTIONS = ("labels", "descriptions", "aliases", "statements", "sitelinks")
 
 
@@ -60,16 +58,16 @@ class PayloadError(Exception):
 
 
 def load(text: str) -> list[dict]:
-    """Parse and validate queue JSON, returning normalized proposal dicts."""
+    """Parse and validate queue JSON, returning normalized batch dicts."""
     try:
         data = json.loads(text)
     except json.JSONDecodeError as error:
         raise PayloadError(f"invalid JSON: {error}") from error
     if isinstance(data, dict):
-        data = data.get("proposals")
+        data = [data]
     if not isinstance(data, list):
-        raise PayloadError('expected a JSON list or {"proposals": [...]}')
-    return [_validate(item, i) for i, item in enumerate(data)]
+        raise PayloadError("expected a batch object or a list of batch objects")
+    return [_validate_batch(item, i) for i, item in enumerate(data)]
 
 
 def _pointer(value: object) -> str | None:
@@ -117,57 +115,49 @@ def _validate_item(document: object, where: str) -> dict:
     return document
 
 
-def _validate(item: object, i: int) -> dict:
-    where = f"proposals[{i}]"
-    if not isinstance(item, dict):
+def _validate_edit(edit: object, where: str) -> dict:
+    if not isinstance(edit, dict):
         raise PayloadError(f"{where}: expected an object")
 
-    kind = item.get("kind")
+    kind = edit.get("kind")
     if kind not in KINDS:
         raise PayloadError(f"{where}.kind: expected one of {list(KINDS)}, got {kind!r}")
 
-    comment = item.get("comment")
-    if not isinstance(comment, str) or not comment.strip():
-        raise PayloadError(
-            f"{where}.comment: required (becomes the Wikidata edit summary)"
-        )
-
-    rationale = item.get("rationale", "")
-    if not isinstance(rationale, str):
-        raise PayloadError(f"{where}.rationale: expected a string")
-    rationale = rationale.strip()
-
-    sources = item.get("sources", [])
-    if not isinstance(sources, list) or not all(isinstance(s, str) for s in sources):
-        raise PayloadError(f"{where}.sources: expected a list of strings")
-
-    base = {
-        "kind": kind,
-        "comment": comment.strip(),
-        "rationale": rationale,
-        "sources": sources,
-    }
-
     if kind == PATCH:
-        if "item" in item:
-            raise PayloadError(f"{where}: a patch proposal has no 'item'")
-        entity = str(item.get("entity", "")).strip().upper()
+        if "item" in edit:
+            raise PayloadError(f"{where}: a patch edit has no 'item'")
+        entity = str(edit.get("entity", "")).strip().upper()
         if not _QID.match(entity):
             raise PayloadError(f"{where}.entity: expected an item QID, got {entity!r}")
-        patch = _validate_patch(item.get("patch"), where)
-        if not rationale and any(op["op"] in EXISTING_STATE_OPS for op in patch):
-            raise PayloadError(
-                f"{where}.rationale: required when the patch changes existing state"
-            )
-        return {**base, "entity": entity, "payload": patch}
+        patch = _validate_patch(edit.get("patch"), where)
+        return {"kind": PATCH, "entity": entity, "payload": patch}
 
-    if "entity" in item or "patch" in item:
+    if "entity" in edit or "patch" in edit:
         raise PayloadError(
             f"{where}: a create has neither 'entity' nor 'patch' — "
             "the QID is assigned on creation"
         )
-    if not rationale:
+    return {"kind": CREATE, "entity": None, "payload": _validate_item(edit.get("item"), where)}
+
+
+def _validate_batch(item: object, i: int) -> dict:
+    where = f"batches[{i}]"
+    if not isinstance(item, dict):
+        raise PayloadError(f"{where}: expected an object")
+
+    rationale = item.get("rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
         raise PayloadError(
-            f"{where}.rationale: required for a create (why is this item missing?)"
+            f"{where}.rationale: required (what the human verifies against)"
         )
-    return {**base, "entity": None, "payload": _validate_item(item.get("item"), where)}
+
+    edits = item.get("edits")
+    if not isinstance(edits, list) or not edits:
+        raise PayloadError(f"{where}.edits: expected a non-empty list")
+
+    return {
+        "rationale": rationale.strip(),
+        "edits": [
+            _validate_edit(edit, f"{where}.edits[{j}]") for j, edit in enumerate(edits)
+        ],
+    }

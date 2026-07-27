@@ -11,7 +11,7 @@ response onto the queue's outcomes:
 
 Anything else — rejection, rate limit, server error, network failure — is
 a failure: the error is shown in the TUI and the proposal stays pending,
-so the human can simply accept again. There is no automatic retry.
+so the human can simply accept again.
 """
 
 import os
@@ -19,7 +19,7 @@ import os
 import httpx
 
 API_URL = "https://www.wikidata.org/w/rest.php/wikibase/v1"
-USER_AGENT = "positions/0.4 (personal Wikidata review tool; httpx)"
+USER_AGENT = "positions/0.5 (personal Wikidata review tool; httpx)"
 
 STALE_CODES = (404, 409, 412)  # item gone, or a test pin no longer holds
 
@@ -50,14 +50,11 @@ def _message(resp: httpx.Response) -> str:
         return resp.text[:200]
 
 
-def submit_patch(
-    client: httpx.Client, qid: str, patch: list[dict], comment: str
-) -> None:
+def submit_patch(client: httpx.Client, qid: str, patch: list[dict]) -> None:
     """Submit the patch verbatim; raise on rejection or drifted live state."""
     url = f"{API_URL}/entities/items/{qid}"
-    body = {"patch": patch, "comment": comment}
     try:
-        resp = client.patch(url, json=body)
+        resp = client.patch(url, json={"patch": patch})
     except httpx.HTTPError as error:
         raise SubmitError(f"Wikidata edit request failed: {error}") from error
     if resp.status_code == 200:
@@ -69,11 +66,10 @@ def submit_patch(
     )
 
 
-def submit_create(client: httpx.Client, item: dict, comment: str) -> str | None:
+def submit_create(client: httpx.Client, item: dict) -> str | None:
     """Create the item verbatim; return the new QID on success."""
-    body = {"item": item, "comment": comment}
     try:
-        resp = client.post(f"{API_URL}/entities/items", json=body)
+        resp = client.post(f"{API_URL}/entities/items", json={"item": item})
     except httpx.HTTPError as error:
         raise SubmitError(f"Wikidata create request failed: {error}") from error
     if resp.status_code == 201:

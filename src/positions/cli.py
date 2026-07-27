@@ -26,7 +26,7 @@ load_dotenv()
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, db: Path = DbOption):
-    """Review queued proposals one at a time; accept pushes to Wikidata."""
+    """Review queued batches one at a time; accept pushes to Wikidata."""
     ctx.obj = db
     if ctx.invoked_subcommand is None:
         tui.review(db)
@@ -40,23 +40,23 @@ def queue(
     """Enqueue proposed edits from a JSON payload (agent-facing)."""
     db: Path = ctx.obj
     try:
-        payloads = proposals_mod.load(file.read())
+        batches = proposals_mod.load(file.read())
     except proposals_mod.PayloadError as error:
         console.print(f"[red]invalid payload:[/] {error}")
         raise typer.Exit(1) from error
 
     with dbmod.open_session(db) as session:
-        added, skipped = dbmod.enqueue(session, payloads)
+        added, skipped = dbmod.enqueue(session, batches)
 
     for proposal in added:
         console.print(
-            f"[green]+[/] #{proposal.id} {dbmod.display_name(proposal)}: "
-            f"{proposal.comment}"
+            f"[green]+[/] #{proposal.id} {dbmod.display_name(proposal)} "
+            f"(batch {proposal.batch})"
         )
-    for payload, reason in skipped:
+    for edit, reason in skipped:
         console.print(
-            f"[yellow]~[/] {payload['entity'] or 'new item'}: "
-            f"{payload['comment']} — {reason}"
+            f"[yellow]~[/] {edit['entity'] or 'new item'} "
+            f"({edit['kind']}) — {reason}"
         )
     console.print(f"queued {len(added)}, skipped {len(skipped)}")
 
@@ -79,16 +79,19 @@ def list_cmd(
     if not rows:
         console.print(f"no {status} proposals")
         return
-    table = Table("id", "entity", "status", "ops", "comment")
+    table = Table("id", "batch", "entity", "status", "ops", "rationale")
     for p in rows:
         ops = str(len(p.payload)) if p.kind == proposals_mod.PATCH else "—"
-        table.add_row(str(p.id), dbmod.display_name(p), p.status, ops, p.comment)
+        rationale = p.rationale if len(p.rationale) <= 60 else p.rationale[:59] + "…"
+        table.add_row(
+            str(p.id), p.batch, dbmod.display_name(p), p.status, ops, rationale
+        )
     console.print(table)
 
 
 @app.command()
 def show(ctx: typer.Context, proposal_id: int):
-    """Show one proposal in full, including rationale and sources."""
+    """Show one proposal in full, including payload and batch rationale."""
     db: Path = ctx.obj
     with dbmod.open_session(db) as session:
         p = session.get(dbmod.Proposal, proposal_id)
@@ -96,13 +99,12 @@ def show(ctx: typer.Context, proposal_id: int):
         console.print(f"[red]no proposal #{proposal_id}")
         raise typer.Exit(1)
 
-    console.print(f"[bold]#{p.id} {dbmod.display_name(p)}[/] \\[{p.status}] {p.kind}")
+    console.print(
+        f"[bold]#{p.id} {dbmod.display_name(p)}[/] \\[{p.status}] {p.kind} "
+        f"(batch {p.batch})"
+    )
     console.print(JSON(json.dumps(p.payload)))
-    console.print(f"  comment:   {p.comment}")
-    if p.rationale:
-        console.print(f"  rationale: {p.rationale}")
-    for source in p.sources:
-        console.print(f"  source:    {source}")
+    console.print(f"  rationale: {p.rationale}")
     if p.note:
         console.print(f"  note:      {p.note}")
 

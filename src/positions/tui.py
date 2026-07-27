@@ -1,14 +1,16 @@
-"""Textual TUI for reviewing queued proposals.
+"""Textual TUI for reviewing queued batches of proposed edits.
 
-Proposals come from the queue (`positions queue`); the TUI never generates
-them. Live Wikidata is only touched on accept: the payload is submitted
-verbatim to the REST API — a patch to `PATCH /v1/entities/items/{id}`,
-whose own `test` pins make the server reject with a 409 if live state
-drifted, or a new-item document to `POST /v1/entities/items`. A drifted
-patch goes stale instead of editing the wrong thing; any other failure is
-shown in the log and the proposal stays pending for another decision.
-Terminal states stay in the proposal table as tombstones; the app itself
-only touches the database on the main thread.
+Batches come from the queue (`positions queue`); the TUI never generates
+them. The review unit is the batch: one rationale over one or more
+edits, decided together. Live Wikidata is only touched on accept: each
+edit is submitted in turn, verbatim, to the REST API — a patch to
+`PATCH /v1/entities/items/{id}`, whose own `test` pins make the server
+reject with a 409 if live state drifted, or a new-item document to
+`POST /v1/entities/items`. A drifted patch goes stale instead of editing
+the wrong thing; any other failure is shown in the log and that edit
+stays pending for another decision. Terminal states stay in the proposal
+table as tombstones; the app itself only touches the database on the
+main thread.
 """
 
 import json
@@ -21,6 +23,7 @@ from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import VerticalScroll
 from textual.message import Message
 from textual.widgets import Footer, Header, RichLog, Static
 
@@ -38,7 +41,7 @@ class Submitted(Message):
 
 
 class SubmitStale(Message):
-    """An accept found changed live state; the proposal went stale."""
+    """An accept found changed live state; the edit went stale."""
 
     def __init__(self, proposal_id: int, reason: str) -> None:
         super().__init__()
@@ -47,7 +50,7 @@ class SubmitStale(Message):
 
 
 class SubmitFailed(Message):
-    """The edit failed; the proposal stays pending so the human can retry."""
+    """The edit failed; it stays pending so the human can retry."""
 
     def __init__(self, proposal_id: int, reason: str) -> None:
         super().__init__()
@@ -55,26 +58,34 @@ class SubmitFailed(Message):
         self.reason = reason
 
 
-def render_proposal(p: dbmod.Proposal) -> Group:
-    """The proposal exactly as it will be sent: header, raw payload, metadata."""
-    parts: list = [
-        Text.from_markup(f"[bold]{dbmod.display_name(p)}[/] — {p.comment}"),
+class BatchFinished(Message):
+    """All edits of the accepted batch have a reported outcome."""
+
+
+def render_edit(p: dbmod.Proposal) -> Group:
+    """One edit exactly as it will be sent: header plus raw payload."""
+    return Group(
+        Text.from_markup(f"[bold]#{p.id} {dbmod.display_name(p)}[/]"),
         JSON(json.dumps(p.payload)),
-    ]
-    footer = [f"rationale: {p.rationale}"] if p.rationale else []
-    footer += [f"source: {source}" for source in p.sources]
-    if footer:
-        parts.append(Text.from_markup("\n".join(footer)))
-    return Group(*parts)
+    )
+
+
+def render_batch(rows: list[dbmod.Proposal]) -> Group:
+    """The batch under review: the shared rationale, then every edit."""
+    return Group(
+        Text.from_markup(f"[bold]rationale:[/] {rows[0].rationale}"),
+        *(render_edit(p) for p in rows),
+    )
 
 
 class PositionsApp(App):
-    """Review loop over the live pending-proposal queue."""
+    """Review loop over the live pending-batch queue."""
 
     TITLE = "positions"
     CSS = """
     #proposal {
         height: auto;
+        max-height: 60%;
         margin: 1 2 0 2;
         padding: 1 2;
         border: round $primary;
@@ -92,8 +103,8 @@ class PositionsApp(App):
     }
     """
     BINDINGS: ClassVar = [
-        Binding("a", "accept", "Accept"),
-        Binding("d", "discard", "Discard"),
+        Binding("a", "accept", "Accept batch"),
+        Binding("d", "discard", "Discard batch"),
         Binding("r", "refresh", "Refresh"),
         Binding("q", "request_quit", "Quit"),
     ]
@@ -102,11 +113,12 @@ class PositionsApp(App):
         super().__init__()
         self.db_path = db_path
         self.session: dbmod.Session | None = None
-        self.busy = False  # a submission is in flight
+        self.busy = False  # a batch submission is in flight
+        self.had_failure = False  # an edit in the in-flight batch failed
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Static(id="proposal")
+        yield VerticalScroll(Static(id="content"), id="proposal")
         yield Static(id="status")
         yield RichLog(markup=True)
         yield Footer()
@@ -128,27 +140,31 @@ class PositionsApp(App):
         self.query_one("#status", Static).update(Text.from_markup(text))
 
     @property
-    def current(self) -> dbmod.Proposal | None:
-        """The first pending proposal, queried fresh on every access."""
+    def current_batch(self) -> tuple[str, list[dbmod.Proposal]] | None:
+        """The first pending batch, queried fresh on every access."""
         if self.session is None:
             return None
-        proposals = dbmod.pending(self.session)
-        return proposals[0] if proposals else None
+        batches = dbmod.pending_batches(self.session)
+        return batches[0] if batches else None
 
     def _show_current(self) -> None:
-        panel = self.query_one("#proposal", Static)
-        proposals = dbmod.pending(self.session) if self.session else []
-        if not proposals:
-            panel.update(Text("No pending proposals."))
+        panel = self.query_one("#proposal", VerticalScroll)
+        content = self.query_one("#content", Static)
+        batches = dbmod.pending_batches(self.session) if self.session else []
+        if not batches:
+            content.update(Text("No pending proposals."))
             panel.border_title = "done"
             self._set_status(
                 "Queue edits with `positions queue < payload.json`, "
                 "press r to refresh or q to quit."
             )
             return
-        proposal = proposals[0]
-        panel.update(render_proposal(proposal))
-        panel.border_title = f"#{proposal.id} — {len(proposals):,} pending"
+        key, rows = batches[0]
+        content.update(render_batch(rows))
+        panel.scroll_home(animate=False)
+        edits = f"{len(rows)} edit" + ("s" if len(rows) != 1 else "")
+        pending = f"{len(batches):,} batch" + ("es" if len(batches) != 1 else "")
+        panel.border_title = f"batch {key} — {edits} — {pending} pending"
         self._set_status("")
 
     # Actions
@@ -156,27 +172,26 @@ class PositionsApp(App):
     def action_accept(self) -> None:
         if self.busy or self.session is None:
             return
-        proposal = self.current
-        if proposal is None:
+        current = self.current_batch
+        if current is None:
             return
+        key, rows = current
         self.busy = True
-        self._set_status(f"Submitting #{proposal.id} {dbmod.display_name(proposal)}…")
-        self.submit_worker(
-            proposal.id,
-            proposal.kind,
-            proposal.entity,
-            proposal.payload,
-            proposal.comment,
-        )
+        self.had_failure = False
+        self._set_status(f"Submitting batch {key} ({len(rows)} edits)…")
+        edits = [(p.id, p.kind, p.entity, p.payload) for p in rows]
+        self.submit_worker(key, edits)
 
     def action_discard(self) -> None:
         if self.busy or self.session is None:
             return
-        proposal = self.current
-        if proposal is None:
+        current = self.current_batch
+        if current is None:
             return
-        dbmod.decide(self.session, proposal, dbmod.REJECTED)
-        self._log(f"[red]✗[/] discarded #{proposal.id} {dbmod.display_name(proposal)}")
+        key, rows = current
+        for proposal in rows:
+            dbmod.decide(self.session, proposal, dbmod.REJECTED)
+        self._log(f"[red]✗[/] discarded batch {key} ({len(rows)} edits)")
         self._show_current()
 
     def action_refresh(self) -> None:
@@ -194,27 +209,33 @@ class PositionsApp(App):
     @work(thread=True)
     def submit_worker(
         self,
-        proposal_id: int,
-        kind: str,
-        entity: str | None,
-        payload: list[dict] | dict,
-        comment: str,
+        batch_key: str,
+        edits: list[tuple[int, str, str | None, list[dict] | dict]],
     ) -> None:
-        created: str | None = None
+        """Submit each edit of the batch in turn, reporting per-edit outcomes."""
         try:
-            with wikidata.auth_client() as client:
-                if kind == proposals.CREATE:
-                    assert isinstance(payload, dict)
-                    created = wikidata.submit_create(client, payload, comment)
-                else:
-                    assert isinstance(entity, str) and isinstance(payload, list)
-                    wikidata.submit_patch(client, entity, payload, comment)
-        except wikidata.SubmitConflict as error:
-            self.post_message(SubmitStale(proposal_id, str(error)))
+            client = wikidata.auth_client()
         except wikidata.SubmitError as error:
-            self.post_message(SubmitFailed(proposal_id, str(error)))
-        else:
-            self.post_message(Submitted(proposal_id, created))
+            self.post_message(SubmitFailed(edits[0][0], str(error)))
+            self.post_message(BatchFinished())
+            return
+        with client:
+            for proposal_id, kind, entity, payload in edits:
+                created: str | None = None
+                try:
+                    if kind == proposals.CREATE:
+                        assert isinstance(payload, dict)
+                        created = wikidata.submit_create(client, payload)
+                    else:
+                        assert isinstance(entity, str) and isinstance(payload, list)
+                        wikidata.submit_patch(client, entity, payload)
+                except wikidata.SubmitConflict as error:
+                    self.post_message(SubmitStale(proposal_id, str(error)))
+                except wikidata.SubmitError as error:
+                    self.post_message(SubmitFailed(proposal_id, str(error)))
+                else:
+                    self.post_message(Submitted(proposal_id, created))
+        self.post_message(BatchFinished())
 
     # Worker results
 
@@ -231,8 +252,6 @@ class PositionsApp(App):
             self._log(f"[green]✓[/] created {message.created_entity} (#{proposal.id})")
         else:
             self._log(f"[green]✓[/] submitted #{proposal.id} {proposal.entity}")
-        self.busy = False
-        self._show_current()
 
     def on_submit_stale(self, message: SubmitStale) -> None:
         proposal = self._reload(message.proposal_id)
@@ -241,17 +260,20 @@ class PositionsApp(App):
             f"[yellow]⚠[/] stale #{proposal.id} "
             f"{dbmod.display_name(proposal)}: {message.reason}"
         )
-        self.busy = False
-        self._show_current()
 
     def on_submit_failed(self, message: SubmitFailed) -> None:
         proposal = self._reload(message.proposal_id)
-        self.busy = False
+        self.had_failure = True
         self._log(
             f"[red]✗[/] #{proposal.id} {dbmod.display_name(proposal)} not submitted: "
             f"{message.reason}. Left pending."
         )
-        self._set_status("Submission failed — decide again or quit.")
+
+    def on_batch_finished(self, message: BatchFinished) -> None:
+        self.busy = False
+        self._show_current()
+        if self.had_failure:
+            self._set_status("Some edits failed — decide again or quit.")
 
 
 def review(db_path: Path) -> None:
