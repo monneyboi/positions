@@ -95,3 +95,24 @@ GUID is recorded on the edit. Statement patches address one statement by
 its GUID with statement-relative paths (`/rank`, `/value/content`,
 `/qualifiers/-`, `/references/-`) — no positional indices anywhere. See
 `.pi/skills/propose-edits/SKILL.md` for the full agent contract.
+
+## Research cache
+
+`cache/` (gitignored, disposable) holds per-country surveys of how
+political systems are currently modeled on Wikidata, one directory per
+country QID (`cache/countries/q183/`). A survey is a set of numbered
+`.sparql`/`.json` query-result pairs plus a README of findings, produced
+by the prompt template `.pi/prompts/survey-country.md`.
+
+Run one headless, fresh per country (takes the country QID as its only
+argument; rebuilds that country's directory from scratch):
+
+```bash
+pi -p --approve --no-session "/survey-country Q183"
+# several:
+for q in Q183 Q142 Q30; do pi -p --approve --no-session "/survey-country $q"; done
+```
+
+Or invoke `/survey-country Q183` in an interactive pi session. Surveys
+are research artifacts: no Wikidata edits, nothing queued — read them
+together and decide what to do.
