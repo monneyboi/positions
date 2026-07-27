@@ -1,6 +1,11 @@
 # positions
 
-A small human-in-the-loop queue for improving political positions on Wikidata.
+A small human-in-the-loop queue for improving political position items
+on Wikidata — the offices that are the values of `position held (P39)`:
+their institutions, jurisdictions, and lifecycle. The goal is complete,
+well-modeled coverage of the world's political offices. Politicians and
+their P39 statements are out of scope — that's
+[poliloom](https://github.com/opensanctions/poliloom).
 
 An agent (pi, with the skills in `.pi/skills/`) researches Wikidata and the
 web and queues proposed edits as JSON, in batches of similar changes under
@@ -68,14 +73,13 @@ statement references.
       "operationId": "patchItemStatement",
       "params": {"item_id": "Q123456", "statement_id": "Q123456$1B7C…"},
       "body": {"patch": [
-        {"op": "replace", "path": "/rank", "value": "deprecated"},
-        {"op": "add", "path": "/qualifiers/-", "value": {"property": {"id": "P582"}, "value": {"type": "value", "content": {"time": "+2023-06-20T00:00:00Z", "precision": 11}}}}
+        {"op": "replace", "path": "/rank", "value": "deprecated"}
       ]}
     },
     {
       "operationId": "addItemStatement",
       "params": {"item_id": "Q123456"},
-      "body": {"statement": {"property": {"id": "P17"}, "value": {"type": "value", "content": "Q33"}, "rank": "normal", "references": [{"parts": [{"property": {"id": "P854"}, "value": {"type": "value", "content": "https://…"}}]}]}}
+      "body": {"statement": {"property": {"id": "P576"}, "value": {"type": "value", "content": {"time": "+1935-01-01T00:00:00Z", "precision": 9}}, "rank": "normal", "references": [{"parts": [{"property": {"id": "P854"}, "value": {"type": "value", "content": "https://…"}}]}]}}
     },
     {
       "operationId": "addItem",

@@ -1,9 +1,15 @@
 # AGENTS.md
 
 `positions` is a personal human-in-the-loop queue for improving political
-position items on Wikidata. An LLM agent researches and queues proposed
-edits in batches; a human reviews each batch in the TUI and only an
-explicit accept submits.
+position items on Wikidata. The goal is complete, well-modeled coverage
+of the world's political *positions* — office items (the values of
+`position held (P39)`), the institutions they belong to, their
+jurisdictions, and their lifecycle. Politicians and their P39
+statements are out of scope: mapping officeholders to offices is
+[poliloom](https://github.com/opensanctions/poliloom)'s domain, not
+this project's. An LLM agent researches and queues proposed edits in
+batches; a human reviews each batch in the TUI and only an explicit
+accept submits.
 
 The local SQLite database holds **proposed edits only** — there is no
 Wikidata mirror and no sync. The agent queries Wikidata itself — SPARQL
@@ -42,7 +48,8 @@ src/positions/
 .pi/skills/
   propose-edits/             agent workflow: research and queue
   wikidata-querying/         QLever SPARQL mirror and live API reference
-  wikidata-political-model/  political data modeling reference
+  wikidata-political-model/  position-item modeling reference: the country
+                             spine of offices, institutions, jurisdictions
   wikidata-labels/           labels, aliases, mul, and fallback reference
 ```
 

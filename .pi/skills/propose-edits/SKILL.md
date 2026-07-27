@@ -96,7 +96,7 @@ The `rationale` is the only queue metadata.
 
 ```json
 {
-  "rationale": "Kalle Kankkonen was never minister per the official gazette (https://example.org/gazette); the P39 statement on Q123456 is wrong, and his actual term ended 2023-06-20 per https://example.org/cabinet.",
+  "rationale": "Q123456 (Minister of Finance of Finland) was linked P361 to the ministry it directs; per the official cabinet page (https://example.org/cabinet) the office is part of the cabinet Q654321. The same page documents the 1918 name change and the office's Finnish name.",
   "edits": [
     {
       "operationId": "patchItemStatement",
@@ -116,7 +116,7 @@ The `rationale` is the only queue metadata.
         {"op": "add", "path": "/qualifiers/-", "value": {
           "property": {"id": "P582"},
           "value": {"type": "value", "content": {
-            "time": "+2023-06-20T00:00:00Z", "precision": 11,
+            "time": "+1918-11-27T00:00:00Z", "precision": 11,
             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"}}
         }},
         {"op": "add", "path": "/references/-", "value": {"parts": [
@@ -131,10 +131,10 @@ The `rationale` is the only queue metadata.
     },
     {
       "operationId": "addItemStatement",
-      "params": {"item_id": "Q654321"},
+      "params": {"item_id": "Q123456"},
       "body": {"statement": {
-        "property": {"id": "P39"},
-        "value": {"type": "value", "content": "Q999888"},
+        "property": {"id": "P361"},
+        "value": {"type": "value", "content": "Q654321"},
         "rank": "normal",
         "references": [{"parts": [
           {"property": {"id": "P854"},
@@ -144,7 +144,7 @@ The `rationale` is the only queue metadata.
     },
     {
       "operationId": "replaceItemLabel",
-      "params": {"item_id": "Q999888", "language_code": "fi"},
+      "params": {"item_id": "Q123456", "language_code": "fi"},
       "body": {"label": "Suomen valtiovarainministeri"}
     }
   ]
@@ -178,7 +178,7 @@ the human accepts, the server 404s and the edit goes stale instead of
 editing the wrong thing.
 
 - **Deprecate, don't remove**, statements that are wrong but have
-  history (a former officeholder value, a superseded jurisdiction):
+  history (a wrong part-of link, a superseded jurisdiction):
   `{"op": "replace", "path": "/rank", "value": "deprecated"}`, ideally
   with a reason (P2241) qualifier. See the `wikidata-political-model`
   skill for the modeling rules. Reserve `deleteItemStatement` for clear
