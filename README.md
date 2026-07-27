@@ -120,7 +120,16 @@ for q in Q183 Q142 Q30; do $PI "/survey-country $q" & done; wait
 
 Each run saves a named-by-date session (browse with `pi -r`, export with
 `/export`) — that session file is the run record, so don't pass
-`--no-session`. Or invoke `/survey-country Q183` in an interactive pi
-session. Surveys
+`--no-session`. Surveys
 are research artifacts: no Wikidata edits, nothing queued — read them
 together and decide what to do.
+
+To watch a run live, open an interactive pi session per survey in a tmux
+window instead (print mode prints only the final response, so a headless
+window stays blank until the very end):
+
+```bash
+tmux new-window -c "$PWD" 'pi --provider openai-codex --model gpt-5.6-terra --thinking medium "/survey-country Q183"'
+```
+
+The window stays open when the run finishes; close it yourself.
