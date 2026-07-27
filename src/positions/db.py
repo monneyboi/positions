@@ -57,7 +57,7 @@ def fingerprint(edit: dict) -> str:
         },
         sort_keys=True,
     )
-    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def display_name(proposal: Proposal) -> str:
