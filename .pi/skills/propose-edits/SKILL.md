@@ -26,14 +26,12 @@ edit atomically — one Wikibase REST API operation per edit.
 
    This response is where statement GUIDs (`Q123456$1B7C…`) come from —
    every `patchItemStatement`/`deleteItemStatement` addresses one
-   statement by this id, and the response's statement objects are the
-   shapes your `addItemStatement` documents copy. Never write GUIDs or
-   statement shapes from memory or from SPARQL results.
+   statement by this id. Never write GUIDs from memory or from SPARQL
+   results.
 
    For an `addItem` create, the target does not exist — that is the
    point. Verify it really doesn't (QLever queries plus the REST item
-   search, checking labels and near-duplicates), and GET a *similar*
-   existing item to copy statement shapes from.
+   search, checking labels and near-duplicates).
 3. **Queue the payload** (schema below). Group edits that stand or fall
    on the same reasoning into ONE batch — one batch, one rationale. Keep
    unrelated findings in separate batches (the payload may be a list of
@@ -165,9 +163,8 @@ editing the wrong thing.
 - **Statement shape** (REST v1): `property.id`, `value.type` +
   `value.content`, `rank`, `qualifiers`, `references`. For item values,
   `content` is the plain QID string; for times, an object with `time`,
-  `precision`, `calendarmodel`. Copy shapes from the GET response, not
-  from memory. Full reference:
-  <https://doc.wikimedia.org/Wikibase/master/js/rest-api/>
+  `precision`, `calendarmodel`. The full schema lives in the OpenAPI
+  spec: <https://doc.wikimedia.org/Wikibase/master/js/rest-api/>
 - **Group what belongs together.** Several changes to the SAME statement
   (deprecate its rank AND add the end-date qualifier AND its reference)
   go in ONE patch so they apply atomically. Changes to different
@@ -198,8 +195,7 @@ cites web sources only.
   `imported from Wikimedia project (P143)`; the community treats those
   as unsourced.
 - The REST v1 reference shape is a list of `parts` (property/value
-  pairs) — see the payload example above, and copy shapes from a GET
-  response when in doubt.
+  pairs) — see the payload example above.
 
 ## Creating items
 
@@ -218,11 +214,10 @@ research and the human's review:
 - **Everything in one create.** Statements that belong to the item all
   go in its `item` document — don't queue follow-up edits to "finish" an
   item behind a separate human accept.
-- **Shapes are the same REST v1 shapes as in GET responses:**
+- **Shapes are the REST v1 shapes from the spec:**
   `labels`/`descriptions` are plain strings per language, `aliases` are
   lists of strings, and statements are the same objects an
-  `addItemStatement` body carries. Copy structure from a GET of a
-  similar existing item.
+  `addItemStatement` body carries.
 
 ## Labels, descriptions, aliases
 
