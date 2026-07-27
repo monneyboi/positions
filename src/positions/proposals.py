@@ -63,7 +63,9 @@ def load(text: str) -> list[dict]:
     return [_validate_batch(item, i) for i, item in enumerate(data)]
 
 
-def _validate_params(params: object, patterns: dict[str, str], where: str) -> dict:
+def _validate_params(
+    params: object, patterns: dict[str, str | None], where: str
+) -> dict:
     if params is None:
         params = {}
     if not isinstance(params, dict):
@@ -72,39 +74,33 @@ def _validate_params(params: object, patterns: dict[str, str], where: str) -> di
         raise PayloadError(
             f"{where}.params: expected exactly {sorted(patterns)}, got {sorted(params)}"
         )
-    normalized = {}
     for name, value in params.items():
-        if not isinstance(value, str) or not re.match(patterns[name], value):
+        pattern = patterns[name]
+        if pattern is not None and (
+            not isinstance(value, str) or not re.match(pattern, value)
+        ):
             raise PayloadError(
-                f"{where}.params.{name}: {value!r} does not match {patterns[name]}"
+                f"{where}.params.{name}: {value!r} does not match {pattern}"
             )
-        if name in spec.ENTITY_PARAMS and value[:1] in ("q", "p"):
-            value = value[0].upper() + value[1:]
-        normalized[name] = value
-    return normalized
+    return params
 
 
 def _validate_body(body: object, op: dict, where: str) -> dict | None:
     fields, required = spec.body_shape(op)
-    payload_fields = fields - spec.METADATA_FIELDS
     if body is None:
-        if payload_fields or required:
-            raise PayloadError(
-                f"{where}.body: required, with at least one of {sorted(payload_fields)}"
-            )
+        if required:
+            raise PayloadError(f"{where}.body: required, with {sorted(required)}")
         return None
-    if not isinstance(body, dict) or not body:
-        raise PayloadError(f"{where}.body: expected a non-empty object")
+    if not isinstance(body, dict):
+        raise PayloadError(f"{where}.body: expected an object")
+    # Stricter than the server (which ignores unexpected fields) on purpose:
+    # a typo'd field would silently no-op at accept time.
     unknown = set(body) - fields
     if unknown:
         raise PayloadError(f"{where}.body: unexpected fields {sorted(unknown)}")
     missing = required - set(body)
     if missing:
         raise PayloadError(f"{where}.body: missing required fields {sorted(missing)}")
-    if payload_fields and not (set(body) - spec.METADATA_FIELDS):
-        raise PayloadError(
-            f"{where}.body: expected at least one of {sorted(payload_fields)}"
-        )
     return body
 
 

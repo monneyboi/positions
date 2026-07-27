@@ -37,12 +37,6 @@ ALLOWED = (
     "addItemAliasesInLanguage",
 )
 
-#: Body fields every write operation accepts; never the point of an edit.
-METADATA_FIELDS = frozenset({"tags", "bot", "comment"})
-
-#: Params that take entity ids; a lowercase q/p prefix is normalized away.
-ENTITY_PARAMS = ("item_id", "statement_id", "property_id")
-
 
 class SpecError(Exception):
     """The operations data is missing allowed operations; refresh it."""
@@ -71,10 +65,10 @@ def lookup(operation_id: str) -> tuple[str, str, dict]:
     return _operations()[operation_id]
 
 
-def path_patterns(op: dict) -> dict[str, str]:
+def path_patterns(op: dict) -> dict[str, str | None]:
     """The operation's path parameters and their spec validation patterns."""
     return {
-        p["name"]: p.get("schema", {}).get("pattern", r"^\S+$")
+        p["name"]: p.get("schema", {}).get("pattern")
         for p in op.get("parameters", [])
         if p["in"] == "path"
     }
