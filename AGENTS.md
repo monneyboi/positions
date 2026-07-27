@@ -2,9 +2,11 @@
 
 `positions` is a personal human-in-the-loop queue for improving political
 position items on Wikidata. The goal is complete, well-modeled coverage
-of the world's political *positions* — office items (the values of
-`position held (P39)`), the institutions they belong to, their
-jurisdictions, and their lifecycle. Politicians and their P39
+of the world's political *positions* at every level of government —
+office items (the values of `position held (P39)`), the institutions
+they belong to, their jurisdictions, and their lifecycle — from the
+national spine down through regions and municipalities to
+special-purpose bodies such as water boards. Politicians and their P39
 statements are out of scope: mapping officeholders to offices is
 [poliloom](https://github.com/opensanctions/poliloom)'s domain, not
 this project's. An LLM agent researches and queues proposed edits in
