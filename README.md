@@ -108,11 +108,15 @@ Run one headless, fresh per country (takes the country QID as its only
 argument; rebuilds that country's directory from scratch):
 
 ```bash
-pi -p --approve --no-session "/survey-country Q183"
-# several:
-for q in Q183 Q142 Q30; do pi -p --approve --no-session "/survey-country $q"; done
+PI="pi -p --approve --provider openai-codex --model gpt-5.6-terra --thinking medium"
+$PI "/survey-country Q183"
+# several, in parallel:
+for q in Q183 Q142 Q30; do $PI "/survey-country $q" & done; wait
 ```
 
-Or invoke `/survey-country Q183` in an interactive pi session. Surveys
+Each run saves a named-by-date session (browse with `pi -r`, export with
+`/export`) — that session file is the run record, so don't pass
+`--no-session`. Or invoke `/survey-country Q183` in an interactive pi
+session. Surveys
 are research artifacts: no Wikidata edits, nothing queued — read them
 together and decide what to do.
