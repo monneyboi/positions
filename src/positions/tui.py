@@ -3,10 +3,10 @@
 Batches come from the queue (`positions queue`); the TUI never generates
 them. The review unit is the batch: one rationale over one or more
 edits, decided together. Live Wikidata is only touched on accept: each
-edit is submitted in turn, verbatim, to the REST API — a patch to
-`PATCH /v1/entities/items/{id}`, whose own `test` pins make the server
-reject with a 409 if live state drifted, or a new-item document to
-`POST /v1/entities/items`. A drifted patch goes stale instead of editing
+edit is submitted in turn, verbatim, as one Wikibase REST API call — the
+operationId the edit names, with its params and body. Edits address
+stable identities (item ids, statement GUIDs, language codes), so if
+live state drifted (404/409/412) the edit goes stale instead of editing
 the wrong thing; any other failure is shown in the log and that edit
 stays pending for another decision. Terminal states stay in the proposal
 table as tombstones; the app itself only touches the database on the
@@ -28,7 +28,7 @@ from textual.message import Message
 from textual.widgets import Footer, Header, RichLog, Static
 
 from . import db as dbmod
-from . import proposals, wikidata
+from . import wikidata
 
 
 class Submitted(Message):
@@ -37,7 +37,7 @@ class Submitted(Message):
     def __init__(self, proposal_id: int, created_entity: str | None) -> None:
         super().__init__()
         self.proposal_id = proposal_id
-        self.created_entity = created_entity  # a create's new QID
+        self.created_entity = created_entity  # a create's new entity id
 
 
 class SubmitStale(Message):
@@ -63,10 +63,13 @@ class BatchFinished(Message):
 
 
 def render_edit(p: dbmod.Proposal) -> Group:
-    """One edit exactly as it will be sent: header plus raw payload."""
+    """One edit exactly as it will be sent: header plus params and body."""
+    payload: dict = {"params": p.params}
+    if p.body is not None:
+        payload["body"] = p.body
     return Group(
-        Text.from_markup(f"[bold]#{p.id} {dbmod.display_name(p)}[/]"),
-        JSON(json.dumps(p.payload)),
+        Text.from_markup(f"[bold]#{p.id} {p.operation} {dbmod.display_name(p)}[/]"),
+        JSON(json.dumps(payload)),
     )
 
 
@@ -179,7 +182,10 @@ class PositionsApp(App):
         self.busy = True
         self.had_failure = False
         self._set_status(f"Submitting batch {key} ({len(rows)} edits)…")
-        edits = [(p.id, p.kind, p.entity, p.payload) for p in rows]
+        edits = [
+            (p.id, {"operationId": p.operation, "params": p.params, "body": p.body})
+            for p in rows
+        ]
         self.submit_worker(key, edits)
 
     def action_discard(self) -> None:
@@ -210,7 +216,7 @@ class PositionsApp(App):
     def submit_worker(
         self,
         batch_key: str,
-        edits: list[tuple[int, str, str | None, list[dict] | dict]],
+        edits: list[tuple[int, dict]],
     ) -> None:
         """Submit each edit of the batch in turn, reporting per-edit outcomes."""
         try:
@@ -220,15 +226,10 @@ class PositionsApp(App):
             self.post_message(BatchFinished())
             return
         with client:
-            for proposal_id, kind, entity, payload in edits:
+            for proposal_id, edit in edits:
                 created: str | None = None
                 try:
-                    if kind == proposals.CREATE:
-                        assert isinstance(payload, dict)
-                        created = wikidata.submit_create(client, payload)
-                    else:
-                        assert isinstance(entity, str) and isinstance(payload, list)
-                        wikidata.submit_patch(client, entity, payload)
+                    created = wikidata.submit(client, edit)
                 except wikidata.SubmitConflict as error:
                     self.post_message(SubmitStale(proposal_id, str(error)))
                 except wikidata.SubmitError as error:

@@ -21,7 +21,7 @@ DEFAULT_DB = Path("positions.sqlite")
 PENDING = "pending"
 SUBMITTED = "submitted"
 REJECTED = "rejected"
-STALE = "stale"  # live Wikidata changed so a patch no longer applies
+STALE = "stale"  # live Wikidata drifted: target gone or conflicting (404/409/412)
 
 STATUSES = (PENDING, SUBMITTED, REJECTED, STALE)
 
@@ -35,10 +35,11 @@ class Proposal(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     batch: Mapped[str] = mapped_column(index=True)  # key grouping one queued batch
-    kind: Mapped[str]  # proposals.PATCH | proposals.CREATE
-    entity: Mapped[str | None]  # QID; a create learns its QID on submission
+    operation: Mapped[str]  # Wikibase REST API operationId (see spec.py)
+    entity: Mapped[str | None]  # display target; a create learns its id on submit
+    params: Mapped[dict] = mapped_column(JSON)  # the operation's path parameters
+    body: Mapped[dict | None] = mapped_column(JSON)  # its request body, verbatim
     fingerprint: Mapped[str] = mapped_column(unique=True)
-    payload: Mapped[list[dict] | dict] = mapped_column(JSON)  # patch | item doc
     rationale: Mapped[str]  # the batch's shared rationale
     status: Mapped[str] = mapped_column(default=PENDING, index=True)
     note: Mapped[str | None] = mapped_column(default=None)
@@ -46,16 +47,21 @@ class Proposal(Base):
     decided_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
-def fingerprint(kind: str, entity: str | None, payload: object) -> str:
-    """Stable identity of an edit: same kind + entity + payload → same fingerprint."""
+def fingerprint(edit: dict) -> str:
+    """Stable identity of an edit: same operation + params + body → same fingerprint."""
     canonical = json.dumps(
-        {"kind": kind, "entity": entity, "payload": payload}, sort_keys=True
+        {
+            "operationId": edit["operationId"],
+            "params": edit["params"],
+            "body": edit["body"],
+        },
+        sort_keys=True,
     )
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
 def display_name(proposal: Proposal) -> str:
-    """How lists and logs refer to a proposal: QID, or 'new item' pre-creation."""
+    """How lists and logs refer to a proposal: entity id, or 'new item' pre-creation."""
     return proposal.entity or "new item"
 
 
@@ -80,17 +86,21 @@ def enqueue(
     for batch in batches:
         key = uuid4().hex[:8]
         for edit in batch["edits"]:
-            fp = fingerprint(edit["kind"], edit["entity"], edit["payload"])
-            existing = session.scalar(select(Proposal).where(Proposal.fingerprint == fp))
+            fp = fingerprint(edit)
+            existing = session.scalar(
+                select(Proposal).where(Proposal.fingerprint == fp)
+            )
             if existing is not None:
                 skipped.append((edit, f"already {existing.status} as #{existing.id}"))
                 continue
+            params = edit["params"]
             proposal = Proposal(
                 batch=key,
-                kind=edit["kind"],
-                entity=edit["entity"],
+                operation=edit["operationId"],
+                entity=params.get("statement_id") or params.get("item_id"),
+                params=params,
+                body=edit["body"],
                 fingerprint=fp,
-                payload=edit["payload"],
                 rationale=batch["rationale"],
             )
             session.add(proposal)
@@ -132,7 +142,7 @@ def decide(
 def record_submission(
     session: Session, proposal: Proposal, created_entity: str | None = None
 ) -> None:
-    """Mark a proposal submitted; a create learns its new QID here."""
+    """Mark a proposal submitted; a create learns its new entity id here."""
     if created_entity is not None:
         proposal.entity = created_entity
     decide(session, proposal, SUBMITTED)

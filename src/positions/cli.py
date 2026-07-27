@@ -54,10 +54,12 @@ def queue(
             f"(batch {proposal.batch})"
         )
     for edit, reason in skipped:
-        console.print(
-            f"[yellow]~[/] {edit['entity'] or 'new item'} "
-            f"({edit['kind']}) — {reason}"
+        target = (
+            edit["params"].get("statement_id")
+            or edit["params"].get("item_id")
+            or "new item"
         )
+        console.print(f"[yellow]~[/] {target} ({edit['operationId']}) — {reason}")
     console.print(f"queued {len(added)}, skipped {len(skipped)}")
 
 
@@ -79,19 +81,26 @@ def list_cmd(
     if not rows:
         console.print(f"no {status} proposals")
         return
-    table = Table("id", "batch", "entity", "status", "ops", "rationale")
+    table = Table("id", "batch", "operation", "entity", "status", "ops", "rationale")
     for p in rows:
-        ops = str(len(p.payload)) if p.kind == proposals_mod.PATCH else "—"
+        patch = p.body.get("patch") if p.body else None
+        ops = str(len(patch)) if isinstance(patch, list) else "—"
         rationale = p.rationale if len(p.rationale) <= 60 else p.rationale[:59] + "…"
         table.add_row(
-            str(p.id), p.batch, dbmod.display_name(p), p.status, ops, rationale
+            str(p.id),
+            p.batch,
+            p.operation,
+            dbmod.display_name(p),
+            p.status,
+            ops,
+            rationale,
         )
     console.print(table)
 
 
 @app.command()
 def show(ctx: typer.Context, proposal_id: int):
-    """Show one proposal in full, including payload and batch rationale."""
+    """Show one proposal in full: operation, params, body, batch rationale."""
     db: Path = ctx.obj
     with dbmod.open_session(db) as session:
         p = session.get(dbmod.Proposal, proposal_id)
@@ -100,10 +109,13 @@ def show(ctx: typer.Context, proposal_id: int):
         raise typer.Exit(1)
 
     console.print(
-        f"[bold]#{p.id} {dbmod.display_name(p)}[/] \\[{p.status}] {p.kind} "
+        f"[bold]#{p.id} {dbmod.display_name(p)}[/] \\[{p.status}] {p.operation} "
         f"(batch {p.batch})"
     )
-    console.print(JSON(json.dumps(p.payload)))
+    payload: dict = {"params": p.params}
+    if p.body is not None:
+        payload["body"] = p.body
+    console.print(JSON(json.dumps(payload)))
     console.print(f"  rationale: {p.rationale}")
     if p.note:
         console.print(f"  note:      {p.note}")

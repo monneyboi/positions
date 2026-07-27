@@ -9,10 +9,10 @@ The local SQLite database holds **proposed edits only** — there is no
 Wikidata mirror and no sync. The agent queries Wikidata itself — SPARQL
 against the QLever mirror, which follows the change stream and is seconds
 behind live — plus the web (and the REST API for live entity state when
-building patches). The server is the only authority on staleness: each
-patch's own `test` ops are evaluated against live state at accept time,
-never by the client. Domain knowledge lives in pi skills under
-`.pi/skills/`, not in code.
+building edits). The server is the only authority on staleness: each
+edit's target is resolved against live state at accept time, never by
+the client. Domain knowledge lives in pi skills under `.pi/skills/`, not
+in code.
 
 ## Commands
 
@@ -32,11 +32,13 @@ an edit during automated verification.
 
 ```text
 src/positions/
-  cli.py         Typer commands (queue/list/show/drop) and TUI entry point
-  tui.py         Textual review loop over pending batches
-  proposals.py   queue payload: batch and edit validation
-  wikidata.py    authenticated PATCH/POST submission to the Wikibase REST API
-  db.py          SQLAlchemy/SQLite proposal queue and tombstones
+  cli.py            Typer commands (queue/list/show/drop) and TUI entry point
+  tui.py            Textual review loop over pending batches
+  proposals.py      queue payload: batch and edit validation (spec-driven)
+  spec.py            allowed REST operations, derived from the OpenAPI spec
+  data/operations.json  generated operation shapes (`uv run python -m positions.spec`)
+  wikidata.py       authenticated verbatim submission to the Wikibase REST API
+  db.py             SQLAlchemy/SQLite proposal queue and tombstones
 .pi/skills/
   propose-edits/             agent workflow: research and queue
   wikidata-querying/         QLever SPARQL mirror and live API reference
@@ -49,21 +51,24 @@ src/positions/
 - A human must explicitly accept every edit. Never add unattended submission;
   the agent's only write path is `positions queue`.
 - Edits are queued in **batches**: one rationale plus one or more edits,
-  which the human reviews and decides as a unit. An edit is one of two
-  kinds, each submitted verbatim to the Wikibase REST API — atomically or
-  not at all: a **patch** (one entity QID plus an RFC 6902 JSON Patch to
-  `PATCH /v1/entities/items/{id}`) or a **create** (one new-item document
-  to `POST /v1/entities/items`). The rationale is the only queue metadata;
+  which the human reviews and decides as a unit. An edit is one Wikibase
+  REST API operation, submitted verbatim — atomically or not at all: an
+  `operationId` on the allowlist in `spec.py`, plus the `params` (path
+  parameters) and `body` (request body) the operation declares in the
+  OpenAPI spec (extracted into `data/operations.json`). The rationale is the only queue metadata;
   sourcing lives in the payload itself (statement references). Validation
-  is structural only; payload discipline (test
-  pins, deprecate-vs-remove, references on added statements, existence
-  checks before creates) is agent guidance in the skills.
-- There is no client-side pre-flight check before submission. For a patch,
-  the server evaluates it (including its `test` ops) against live state; a
-  404/409/412 means live state drifted, so mark the edit stale —
-  never force an edit through. A create has no live state to pin and
-  cannot go stale; guarding against duplicate items is review discipline,
-  not code.
+  is structural only, read from the spec: allowed operation, exact path
+  params matching their patterns, declared body fields. Payload discipline
+  (deprecate-vs-remove, references on added statements, existence checks
+  before creates) is agent guidance in the skills.
+- There is no client-side pre-flight check before submission; the server's
+  response decides the outcome. Edits address stable identities — item
+  ids, statement GUIDs, language codes, never positional indices (the
+  item-level `patchItem` is not on the allowlist) — so drift between
+  queueing and accept surfaces as a loud 404/409/412 and the edit goes
+  stale, never a silent wrong-target edit. A create (`addItem`,
+  `addItemStatement`) has no live state to pin and cannot go stale;
+  guarding against duplicates is review discipline, not code.
 - Terminal edit states (submitted/rejected/stale) stay in the table as
   tombstones keyed by content fingerprint, so a decided edit is never
   proposed again.
@@ -74,12 +79,13 @@ src/positions/
 
 ## Implementation notes
 
-- Submission maps responses per edit: patch 200 → submitted, 404/409/412 →
-  stale; create 201 → submitted (the response body's `id` becomes the
-  edit's entity). A batch accept submits its edits sequentially, each with
-  its own outcome. Anything else — rejection, rate limit, server error —
-  is failed: the error is shown in the TUI and the edit stays pending for
-  the human to re-approve or discard. Submission is just the OAuth 2.0
-  bearer plus the verbatim payload; a patch's own `test` ops are the
-  concurrency guard.
+- Submission maps responses uniformly for every operation: 200/201 →
+  submitted (a response body `id` — a create's new QID or statement GUID —
+  becomes the edit's entity); 404/409/412 → stale. A batch accept submits
+  its edits sequentially, each with its own outcome. Anything else —
+  rejection, rate limit, server error — is failed: the error is shown in
+  the TUI and the edit stays pending for the human to re-approve or
+  discard. Submission is just the OAuth 2.0 bearer plus the verbatim
+  params and body; addressing edits by stable identity (never array
+  indices) is the concurrency guard.
 - Use Python 3.12+, type hints, and Ruff defaults.

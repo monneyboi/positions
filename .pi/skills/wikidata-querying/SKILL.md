@@ -102,9 +102,10 @@ For the current state of one entity, GET it from the REST API:
 curl -s https://www.wikidata.org/w/rest.php/wikibase/v1/entities/items/Q…
 ```
 
-The response is the document a JSON Patch addresses (see the
-`propose-edits` skill): positional paths like `/statements/P39/2` index
-into its `statements` arrays, and each statement's `id` is the strongest
-pin for a `test` op. Statements at every rank — preferred, normal, and
-deprecated — are included. When proposing a new item (a create), GET a
-similar existing item and copy its statement shapes.
+The response is where statement GUIDs and statement shapes come from
+(see the `propose-edits` skill): `patchItemStatement` and
+`deleteItemStatement` edits address one statement by its `id`
+(`Q…$1B7C…`), and an `addItemStatement` body copies the shape of the
+statement objects here. Statements at every rank — preferred, normal,
+and deprecated — are included. When proposing a new item (`addItem`),
+GET a similar existing item and copy its statement shapes.
