@@ -294,6 +294,9 @@ Legitimate national variation — register it in surveys, never "fix" it:
   `P361` the whole legislature;
 - **monarchies**: the head-of-state office is the crown; persons churn
   in `P35`;
+- **collective head of state**: the office may be a collegial body
+  (Swiss Federal Council, Bosnia's tripartite presidency); the chair
+  rotates and is not the office;
 - **legacy term-specific membership offices**: supported where
   established, never adopted anew; person statements must still carry
   `P2937`;
