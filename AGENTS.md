@@ -35,8 +35,8 @@ src/positions/
   cli.py            Typer commands (queue/list/show/drop) and TUI entry point
   tui.py            Textual review loop over pending batches
   proposals.py      queue payload: batch and edit validation (spec-driven)
-  spec.py            allowed REST operations, derived from the OpenAPI spec
-  data/operations.json  generated operation shapes (`uv run python -m positions.spec`)
+  spec.py            the allowlist; data/operations.json is the OpenAPI spec,
+                     filtered to allowed operations (`uv run python -m positions.spec`)
   wikidata.py       authenticated verbatim submission to the Wikibase REST API
   db.py             SQLAlchemy/SQLite proposal queue and tombstones
 .pi/skills/

@@ -7,6 +7,7 @@ import typer
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.json import JSON
+from rich.markup import escape
 from rich.table import Table
 
 from . import db as dbmod
@@ -42,7 +43,7 @@ def queue(
     try:
         batches = proposals_mod.load(file.read())
     except proposals_mod.PayloadError as error:
-        console.print(f"[red]invalid payload:[/] {error}")
+        console.print(f"[red]invalid payload:[/] {escape(str(error))}")
         raise typer.Exit(1) from error
 
     with dbmod.open_session(db) as session:

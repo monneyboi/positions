@@ -16,7 +16,7 @@ paths.
 1. The agent finds improvements (QLever SPARQL mirror, official sources)
    and runs `uv run positions queue proposals.json`.
 2. `positions queue` validates the payload structurally against the
-   allowed operations derived from the OpenAPI spec (an allowed
+   OpenAPI spec (filtered to the allowed operations): an allowed
    `operationId`, its path params, its body fields, plus the batch
    rationale) and stores each edit. Edits
    already known — pending, submitted, rejected, or stale — are skipped by

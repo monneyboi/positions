@@ -3,8 +3,8 @@
 The payload is ONE batch or a list of batches. A batch is one rationale
 plus a non-empty list of edits — the human reviews and decides the batch
 as a unit. An edit is one Wikibase REST API operation, named by its
-`operationId` from the allowed operations (spec.py, derived from the
-OpenAPI spec) and carrying the
+`operationId` from the allowed operations (spec.py filters the OpenAPI
+spec down to them) and carrying the
 `params` (path parameters) and `body` (request body) that operation
 declares — submitted verbatim, atomically or not at all:
 
@@ -41,6 +41,7 @@ also accepted.
 """
 
 import json
+import re
 
 from . import spec
 
@@ -62,22 +63,20 @@ def load(text: str) -> list[dict]:
     return [_validate_batch(item, i) for i, item in enumerate(data)]
 
 
-def _validate_params(params: object, op: spec.Operation, where: str) -> dict:
+def _validate_params(params: object, patterns: dict[str, str], where: str) -> dict:
     if params is None:
         params = {}
     if not isinstance(params, dict):
         raise PayloadError(f"{where}.params: expected an object")
-    if set(params) != set(op.path_params):
+    if set(params) != set(patterns):
         raise PayloadError(
-            f"{where}.params: expected exactly {sorted(op.path_params)}, "
-            f"got {sorted(params)}"
+            f"{where}.params: expected exactly {sorted(patterns)}, got {sorted(params)}"
         )
     normalized = {}
     for name, value in params.items():
-        pattern = op.path_params[name]
-        if not isinstance(value, str) or not pattern.match(value):
+        if not isinstance(value, str) or not re.match(patterns[name], value):
             raise PayloadError(
-                f"{where}.params.{name}: {value!r} does not match {pattern.pattern}"
+                f"{where}.params.{name}: {value!r} does not match {patterns[name]}"
             )
         if name in spec.ENTITY_PARAMS and value[:1] in ("q", "p"):
             value = value[0].upper() + value[1:]
@@ -85,20 +84,21 @@ def _validate_params(params: object, op: spec.Operation, where: str) -> dict:
     return normalized
 
 
-def _validate_body(body: object, op: spec.Operation, where: str) -> dict | None:
-    payload_fields = op.body_fields - spec.METADATA_FIELDS
+def _validate_body(body: object, op: dict, where: str) -> dict | None:
+    fields, required = spec.body_shape(op)
+    payload_fields = fields - spec.METADATA_FIELDS
     if body is None:
-        if payload_fields or op.body_required:
+        if payload_fields or required:
             raise PayloadError(
                 f"{where}.body: required, with at least one of {sorted(payload_fields)}"
             )
         return None
     if not isinstance(body, dict) or not body:
         raise PayloadError(f"{where}.body: expected a non-empty object")
-    unknown = set(body) - op.body_fields
+    unknown = set(body) - fields
     if unknown:
         raise PayloadError(f"{where}.body: unexpected fields {sorted(unknown)}")
-    missing = op.body_required - set(body)
+    missing = required - set(body)
     if missing:
         raise PayloadError(f"{where}.body: missing required fields {sorted(missing)}")
     if payload_fields and not (set(body) - spec.METADATA_FIELDS):
@@ -116,15 +116,15 @@ def _validate_edit(edit: object, where: str) -> dict:
         raise PayloadError(f"{where}: unexpected fields {sorted(unknown)}")
 
     operation_id = edit.get("operationId")
-    op = spec.operations().get(operation_id) if isinstance(operation_id, str) else None
-    if op is None:
+    if not isinstance(operation_id, str) or operation_id not in spec.ALLOWED:
         raise PayloadError(
             f"{where}.operationId: expected one of {list(spec.ALLOWED)}, "
             f"got {operation_id!r}"
         )
+    _, _, op = spec.lookup(operation_id)
     return {
         "operationId": operation_id,
-        "params": _validate_params(edit.get("params"), op, where),
+        "params": _validate_params(edit.get("params"), spec.path_patterns(op), where),
         "body": _validate_body(edit.get("body"), op, where),
     }
 

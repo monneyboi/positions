@@ -1,7 +1,7 @@
 """Authenticated submission to the Wikibase REST API (the review "accept" path).
 
-An edit names one allowed `operationId` from the generated operations
-data (spec.py) plus its `params` and `body`; we send it verbatim — one HTTP
+An edit names one allowed `operationId` from the filtered OpenAPI spec
+(spec.py) plus its `params` and `body`; we send it verbatim — one HTTP
 call, atomically or not at all. Edits address stable identities (item
 ids, statement GUIDs, language codes), so drift between queueing and
 accept surfaces as a loud server error rather than a silent wrong-target
@@ -56,10 +56,10 @@ def _message(resp: httpx.Response) -> str:
 
 def submit(client: httpx.Client, edit: dict) -> str | None:
     """Submit one edit verbatim; return a new entity id if the server gave one."""
-    op = spec.operations()[edit["operationId"]]
-    url = API_BASE + op.path.format(**edit["params"])
+    method, path, _ = spec.lookup(edit["operationId"])
+    url = API_BASE + path.format(**edit["params"])
     try:
-        resp = client.request(op.method, url, json=edit.get("body"))
+        resp = client.request(method, url, json=edit.get("body"))
     except httpx.HTTPError as error:
         raise SubmitError(f"Wikidata edit request failed: {error}") from error
     if resp.status_code in (200, 201):

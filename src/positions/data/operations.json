@@ -1,142 +1,6059 @@
 {
- "addItem": {
-  "method": "POST",
-  "path": "/v1/entities/items",
-  "path_params": {},
-  "body_fields": [
-   "bot",
-   "comment",
-   "item",
-   "tags"
-  ],
-  "body_required": [
-   "item"
-  ]
- },
- "addItemAliasesInLanguage": {
-  "method": "POST",
-  "path": "/v1/entities/items/{item_id}/aliases/{language_code}",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$",
-   "language_code": "^[a-z]{2}[a-z0-9-]*$"
+ "paths": {
+  "/v1/entities/items": {
+   "post": {
+    "operationId": "addItem",
+    "tags": [
+     "items"
+    ],
+    "summary": "Create a Wikibase Item",
+    "parameters": [
+     {
+      "name": "Authorization",
+      "in": "header",
+      "description": "Make authenticated request using a provided bearer token",
+      "schema": {
+       "type": "string"
+      },
+      "example": "Bearer mF_9.B5f-4.1JqM"
+     }
+    ],
+    "requestBody": {
+     "description": "Payload containing a Wikibase Item and edit metadata",
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "allOf": [
+         {
+          "type": "object",
+          "properties": {
+           "item": {
+            "type": "object",
+            "properties": {
+             "id": {
+              "type": "string",
+              "readOnly": true
+             },
+             "type": {
+              "type": "string",
+              "const": "item",
+              "readOnly": true
+             },
+             "labels": {
+              "type": "object",
+              "additionalProperties": {
+               "type": "string"
+              }
+             },
+             "descriptions": {
+              "type": "object",
+              "additionalProperties": {
+               "type": "string"
+              }
+             },
+             "aliases": {
+              "type": "object",
+              "additionalProperties": {
+               "type": "array",
+               "items": {
+                "type": "string"
+               }
+              }
+             },
+             "sitelinks": {
+              "type": "object",
+              "additionalProperties": {
+               "type": "object",
+               "properties": {
+                "title": {
+                 "type": "string"
+                },
+                "badges": {
+                 "type": "array",
+                 "items": {
+                  "type": "string"
+                 }
+                },
+                "url": {
+                 "type": "string",
+                 "readOnly": true
+                }
+               },
+               "required": [
+                "title"
+               ]
+              }
+             },
+             "statements": {
+              "type": "object",
+              "additionalProperties": {
+               "type": "array",
+               "items": {
+                "type": "object",
+                "properties": {
+                 "id": {
+                  "description": "The globally unique identifier for this Statement",
+                  "type": "string",
+                  "readOnly": true
+                 },
+                 "rank": {
+                  "description": "The rank of the Statement",
+                  "type": "string",
+                  "enum": [
+                   "deprecated",
+                   "normal",
+                   "preferred"
+                  ],
+                  "default": "normal"
+                 },
+                 "property": {
+                  "type": "object",
+                  "properties": {
+                   "id": {
+                    "description": "The ID of the Property",
+                    "type": "string"
+                   },
+                   "data_type": {
+                    "description": "The data type of the Property",
+                    "type": [
+                     "string",
+                     "null"
+                    ],
+                    "readOnly": true
+                   }
+                  }
+                 },
+                 "value": {
+                  "type": "object",
+                  "properties": {
+                   "content": {
+                    "description": "The value, if type == \"value\", otherwise omitted"
+                   },
+                   "type": {
+                    "description": "The value type",
+                    "type": "string",
+                    "enum": [
+                     "value",
+                     "somevalue",
+                     "novalue"
+                    ]
+                   }
+                  }
+                 },
+                 "qualifiers": {
+                  "type": "array",
+                  "items": {
+                   "type": "object",
+                   "properties": {
+                    "property": {
+                     "type": "object",
+                     "properties": {
+                      "id": {
+                       "description": "The ID of the Property",
+                       "type": "string"
+                      },
+                      "data_type": {
+                       "description": "The data type of the Property",
+                       "type": [
+                        "string",
+                        "null"
+                       ],
+                       "readOnly": true
+                      }
+                     }
+                    },
+                    "value": {
+                     "type": "object",
+                     "properties": {
+                      "content": {
+                       "description": "The value, if type == \"value\", otherwise omitted"
+                      },
+                      "type": {
+                       "description": "The value type",
+                       "type": "string",
+                       "enum": [
+                        "value",
+                        "somevalue",
+                        "novalue"
+                       ]
+                      }
+                     }
+                    }
+                   }
+                  },
+                  "default": []
+                 },
+                 "references": {
+                  "type": "array",
+                  "items": {
+                   "type": "object",
+                   "properties": {
+                    "hash": {
+                     "description": "Hash of the Reference",
+                     "type": "string",
+                     "readOnly": true
+                    },
+                    "parts": {
+                     "type": "array",
+                     "items": {
+                      "type": "object",
+                      "properties": {
+                       "property": {
+                        "type": "object",
+                        "properties": {
+                         "id": {
+                          "description": "The ID of the Property",
+                          "type": "string"
+                         },
+                         "data_type": {
+                          "description": "The data type of the Property",
+                          "type": [
+                           "string",
+                           "null"
+                          ],
+                          "readOnly": true
+                         }
+                        }
+                       },
+                       "value": {
+                        "type": "object",
+                        "properties": {
+                         "content": {
+                          "description": "The value, if type == \"value\", otherwise omitted"
+                         },
+                         "type": {
+                          "description": "The value type",
+                          "type": "string",
+                          "enum": [
+                           "value",
+                           "somevalue",
+                           "novalue"
+                          ]
+                         }
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  "default": []
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          },
+          "required": [
+           "item"
+          ]
+         },
+         {
+          "type": "object",
+          "properties": {
+           "tags": {
+            "type": "array",
+            "items": {
+             "type": "string"
+            },
+            "default": []
+           },
+           "bot": {
+            "type": "boolean",
+            "default": false
+           },
+           "comment": {
+            "type": "string"
+           }
+          }
+         }
+        ]
+       },
+       "example": {
+        "item": {
+         "labels": {
+          "en": "Jane Doe",
+          "ru": "\u0414\u0436\u0435\u0439\u043d \u0414\u043e\u0443"
+         },
+         "descriptions": {
+          "en": "famous person",
+          "ru": "\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u0430\u044f \u043b\u0438\u0447\u043d\u043e\u0441\u0442\u044c"
+         },
+         "aliases": {
+          "en": [
+           "Jane M. Doe",
+           "JD"
+          ],
+          "ru": [
+           "\u0414\u0436\u0435\u0439\u043d \u041c. \u0414\u043e\u0443"
+          ]
+         },
+         "statements": {
+          "P694": [
+           {
+            "property": {
+             "id": "P694"
+            },
+            "value": {
+             "type": "value",
+             "content": "Q626683"
+            }
+           }
+          ],
+          "P476": [
+           {
+            "property": {
+             "id": "P476"
+            },
+            "value": {
+             "type": "value",
+             "content": {
+              "time": "+1986-01-27T00:00:00Z",
+              "precision": 11,
+              "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+             }
+            }
+           }
+          ],
+          "P17": [
+           {
+            "property": {
+             "id": "P17"
+            },
+            "value": {
+             "type": "value",
+             "content": "Senior Team Supervisor"
+            },
+            "qualifiers": [
+             {
+              "property": {
+               "id": "P706"
+              },
+              "value": {
+               "type": "value",
+               "content": {
+                "time": "+2023-06-13T00:00:00Z",
+                "precision": 11,
+                "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+               }
+              }
+             }
+            ],
+            "references": [
+             {
+              "parts": [
+               {
+                "property": {
+                 "id": "P709"
+                },
+                "value": {
+                 "type": "value",
+                 "content": "https://news.example.org"
+                }
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         },
+         "sitelinks": {
+          "enwiki": {
+           "title": "Jane Doe"
+          },
+          "ruwiki": {
+           "title": "\u0414\u0436\u0435\u0439\u043d \u0414\u043e\u0443"
+          }
+         }
+        },
+        "comment": "Create an Item for Jane Doe"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "A single Wikibase Item",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "allOf": [
+          {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string",
+             "readOnly": true
+            },
+            "type": {
+             "type": "string",
+             "const": "item",
+             "readOnly": true
+            },
+            "labels": {
+             "type": "object",
+             "additionalProperties": {
+              "type": "string"
+             }
+            },
+            "descriptions": {
+             "type": "object",
+             "additionalProperties": {
+              "type": "string"
+             }
+            },
+            "aliases": {
+             "type": "object",
+             "additionalProperties": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             }
+            },
+            "sitelinks": {
+             "type": "object",
+             "additionalProperties": {
+              "type": "object",
+              "properties": {
+               "title": {
+                "type": "string"
+               },
+               "badges": {
+                "type": "array",
+                "items": {
+                 "type": "string"
+                }
+               },
+               "url": {
+                "type": "string",
+                "readOnly": true
+               }
+              },
+              "required": [
+               "title"
+              ]
+             }
+            },
+            "statements": {
+             "type": "object",
+             "additionalProperties": {
+              "type": "array",
+              "items": {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "description": "The globally unique identifier for this Statement",
+                 "type": "string",
+                 "readOnly": true
+                },
+                "rank": {
+                 "description": "The rank of the Statement",
+                 "type": "string",
+                 "enum": [
+                  "deprecated",
+                  "normal",
+                  "preferred"
+                 ],
+                 "default": "normal"
+                },
+                "property": {
+                 "type": "object",
+                 "properties": {
+                  "id": {
+                   "description": "The ID of the Property",
+                   "type": "string"
+                  },
+                  "data_type": {
+                   "description": "The data type of the Property",
+                   "type": [
+                    "string",
+                    "null"
+                   ],
+                   "readOnly": true
+                  }
+                 }
+                },
+                "value": {
+                 "type": "object",
+                 "properties": {
+                  "content": {
+                   "description": "The value, if type == \"value\", otherwise omitted"
+                  },
+                  "type": {
+                   "description": "The value type",
+                   "type": "string",
+                   "enum": [
+                    "value",
+                    "somevalue",
+                    "novalue"
+                   ]
+                  }
+                 }
+                },
+                "qualifiers": {
+                 "type": "array",
+                 "items": {
+                  "type": "object",
+                  "properties": {
+                   "property": {
+                    "type": "object",
+                    "properties": {
+                     "id": {
+                      "description": "The ID of the Property",
+                      "type": "string"
+                     },
+                     "data_type": {
+                      "description": "The data type of the Property",
+                      "type": [
+                       "string",
+                       "null"
+                      ],
+                      "readOnly": true
+                     }
+                    }
+                   },
+                   "value": {
+                    "type": "object",
+                    "properties": {
+                     "content": {
+                      "description": "The value, if type == \"value\", otherwise omitted"
+                     },
+                     "type": {
+                      "description": "The value type",
+                      "type": "string",
+                      "enum": [
+                       "value",
+                       "somevalue",
+                       "novalue"
+                      ]
+                     }
+                    }
+                   }
+                  }
+                 },
+                 "default": []
+                },
+                "references": {
+                 "type": "array",
+                 "items": {
+                  "type": "object",
+                  "properties": {
+                   "hash": {
+                    "description": "Hash of the Reference",
+                    "type": "string",
+                    "readOnly": true
+                   },
+                   "parts": {
+                    "type": "array",
+                    "items": {
+                     "type": "object",
+                     "properties": {
+                      "property": {
+                       "type": "object",
+                       "properties": {
+                        "id": {
+                         "description": "The ID of the Property",
+                         "type": "string"
+                        },
+                        "data_type": {
+                         "description": "The data type of the Property",
+                         "type": [
+                          "string",
+                          "null"
+                         ],
+                         "readOnly": true
+                        }
+                       }
+                      },
+                      "value": {
+                       "type": "object",
+                       "properties": {
+                        "content": {
+                         "description": "The value, if type == \"value\", otherwise omitted"
+                        },
+                        "type": {
+                         "description": "The value type",
+                         "type": "string",
+                         "enum": [
+                          "value",
+                          "somevalue",
+                          "novalue"
+                         ]
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 },
+                 "default": []
+                }
+               }
+              }
+             }
+            }
+           }
+          },
+          {
+           "required": [
+            "id",
+            "type",
+            "labels",
+            "descriptions",
+            "aliases",
+            "statements",
+            "sitelinks"
+           ],
+           "properties": {
+            "sitelinks": {
+             "additionalProperties": {
+              "required": [
+               "title",
+               "badges",
+               "url"
+              ]
+             }
+            },
+            "statements": {
+             "additionalProperties": {
+              "items": {
+               "allOf": [
+                {
+                 "required": [
+                  "property",
+                  "value"
+                 ],
+                 "properties": {
+                  "property": {
+                   "required": [
+                    "id",
+                    "data_type"
+                   ]
+                  },
+                  "value": {
+                   "required": [
+                    "type"
+                   ]
+                  }
+                 }
+                },
+                {
+                 "required": [
+                  "id",
+                  "rank",
+                  "qualifiers",
+                  "references"
+                 ],
+                 "properties": {
+                  "qualifiers": {
+                   "items": {
+                    "required": [
+                     "property",
+                     "value"
+                    ],
+                    "properties": {
+                     "property": {
+                      "required": [
+                       "id",
+                       "data_type"
+                      ]
+                     },
+                     "value": {
+                      "required": [
+                       "type"
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  "references": {
+                   "items": {
+                    "required": [
+                     "hash",
+                     "parts"
+                    ],
+                    "properties": {
+                     "hash": {
+                      "type": "string"
+                     },
+                     "parts": {
+                      "items": {
+                       "required": [
+                        "property",
+                        "value"
+                       ],
+                       "properties": {
+                        "property": {
+                         "required": [
+                          "id",
+                          "data_type"
+                         ]
+                        },
+                        "value": {
+                         "required": [
+                          "type"
+                         ]
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              }
+             }
+            }
+           }
+          }
+         ]
+        },
+        "example": {
+         "id": "Q24",
+         "type": "item",
+         "labels": {
+          "en": "Jane Doe",
+          "ru": "\u0414\u0436\u0435\u0439\u043d \u0414\u043e\u0443"
+         },
+         "descriptions": {
+          "en": "famous person",
+          "ru": "\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u0430\u044f \u043b\u0438\u0447\u043d\u043e\u0441\u0442\u044c"
+         },
+         "aliases": {
+          "en": [
+           "Jane M. Doe",
+           "JD"
+          ],
+          "ru": [
+           "\u0414\u0436\u0435\u0439\u043d \u041c. \u0414\u043e\u0443"
+          ]
+         },
+         "statements": {
+          "P694": [
+           {
+            "id": "Q24$BB728546-A400-4116-A772-16D54B62AC2B",
+            "rank": "normal",
+            "property": {
+             "id": "P694",
+             "data_type": "wikibase-item"
+            },
+            "value": {
+             "type": "value",
+             "content": "Q626683"
+            },
+            "qualifiers": [],
+            "references": []
+           }
+          ],
+          "P476": [
+           {
+            "id": "Q24$F3B2F956-B6AB-4984-8D89-BEE0FFFA3385",
+            "rank": "normal",
+            "property": {
+             "id": "P476",
+             "data_type": "time"
+            },
+            "value": {
+             "type": "value",
+             "content": {
+              "time": "+1986-01-27T00:00:00Z",
+              "precision": 11,
+              "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+             }
+            },
+            "qualifiers": [],
+            "references": []
+           }
+          ],
+          "P17": [
+           {
+            "id": "Q24$9966A1CA-F3F5-4B1D-A534-7CD5953169DA",
+            "rank": "normal",
+            "property": {
+             "id": "P17",
+             "data_type": "string"
+            },
+            "value": {
+             "type": "value",
+             "content": "Senior Team Supervisor"
+            },
+            "qualifiers": [
+             {
+              "property": {
+               "id": "P706",
+               "data_type": "time"
+              },
+              "value": {
+               "type": "value",
+               "content": {
+                "time": "+2023-06-13T00:00:00Z",
+                "precision": 11,
+                "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+               }
+              }
+             }
+            ],
+            "references": [
+             {
+              "hash": "7ccd777f870b71a4c5056c7fd2a83a22cc39be6d",
+              "parts": [
+               {
+                "property": {
+                 "id": "P709",
+                 "data_type": "url"
+                },
+                "value": {
+                 "type": "value",
+                 "content": "https://news.example.org"
+                }
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         },
+         "sitelinks": {
+          "enwiki": {
+           "title": "Jane Doe",
+           "badges": [],
+           "url": "https://enwiki.example.org/wiki/Jane_Doe"
+          },
+          "ruwiki": {
+           "title": "\u0414\u0436\u0435\u0439\u043d \u0414\u043e\u0443",
+           "badges": [],
+           "url": "https://ruwiki.example.org/wiki/\u0414\u0436\u0435\u0439\u043d_\u0414\u043e\u0443"
+          }
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         },
+         "statement-group-property-id-mismatch": {
+          "value": {
+           "code": "statement-group-property-id-mismatch",
+           "message": "Statement's Property ID does not match the Statement group key",
+           "context": {
+            "path": "{property_id_key}/{index}/property/id",
+            "statement_group_property_id": "{property_id_key}",
+            "statement_property_id": "{property_id_value}"
+           }
+          }
+         },
+         "referenced-resource-not-found": {
+          "value": {
+           "code": "referenced-resource-not-found",
+           "message": "The referenced resource does not exist",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "missing-field": {
+          "value": {
+           "code": "missing-field",
+           "message": "Required field missing",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "field": "{missing_field}"
+           }
+          }
+         },
+         "invalid-key": {
+          "value": {
+           "code": "invalid-key",
+           "message": "Invalid key '{key}' in '{json_pointer_to_parent}'",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "key": "{key}"
+           }
+          }
+         },
+         "resource-too-large": {
+          "value": {
+           "code": "resource-too-large",
+           "message": "Edit resulted in a resource that exceeds the size limit of {configured_limit}",
+           "context": {
+            "limit": "configured_limit_as_int"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "422": {
+      "description": "The edit request violates data policy",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "data-policy-violation": {
+          "value": {
+           "code": "data-policy-violation",
+           "message": "Edit violates data policy",
+           "context": {
+            "violation": "{violation_code}",
+            "violation_context": {
+             "some": "context"
+            }
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   }
   },
-  "body_fields": [
-   "aliases",
-   "bot",
-   "comment",
-   "tags"
-  ],
-  "body_required": [
-   "aliases"
-  ]
- },
- "addItemStatement": {
-  "method": "POST",
-  "path": "/v1/entities/items/{item_id}/statements",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$"
+  "/v1/entities/items/{item_id}/labels/{language_code}": {
+   "put": {
+    "operationId": "replaceItemLabel",
+    "tags": [
+     "labels"
+    ],
+    "summary": "Add / Replace an Item's label in a specific language",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "in": "path",
+      "name": "language_code",
+      "description": "The requested resource language",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[a-z]{2}[a-z0-9-]*$"
+      },
+      "example": "en"
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Modified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "Authorization",
+      "in": "header",
+      "description": "Make authenticated request using a provided bearer token",
+      "schema": {
+       "type": "string"
+      },
+      "example": "Bearer mF_9.B5f-4.1JqM"
+     }
+    ],
+    "requestBody": {
+     "description": "Payload containing an Item label in the specified language and edit metadata",
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "allOf": [
+         {
+          "type": "object",
+          "properties": {
+           "label": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "label"
+          ]
+         },
+         {
+          "type": "object",
+          "properties": {
+           "tags": {
+            "type": "array",
+            "items": {
+             "type": "string"
+            },
+            "default": []
+           },
+           "bot": {
+            "type": "boolean",
+            "default": false
+           },
+           "comment": {
+            "type": "string"
+           }
+          }
+         }
+        ]
+       },
+       "example": {
+        "label": "Jane Doe",
+        "tags": [],
+        "bot": false,
+        "comment": "Update the English label"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The updated Label in a specific language",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        },
+        "example": "Jane Doe"
+       }
+      }
+     },
+     "201": {
+      "description": "The newly added Label in a specific language",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        },
+        "example": "Jane Doe"
+       }
+      }
+     },
+     "304": {
+      "description": "The specified resource has not been modified since last provided revision number or date",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "missing-field": {
+          "value": {
+           "code": "missing-field",
+           "message": "Required field missing",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "field": "{missing_field}"
+           }
+          }
+         },
+         "resource-too-large": {
+          "value": {
+           "code": "resource-too-large",
+           "message": "Edit resulted in a resource that exceeds the size limit of {configured_limit}",
+           "context": {
+            "limit": "configured_limit_as_int"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "409": {
+      "description": "The specified Item was redirected",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "redirected-item": {
+          "value": {
+           "code": "redirected-item",
+           "message": "Item {item_id} has been redirected to {redirect_target_id}",
+           "context": {
+            "redirect_target": "{redirect_target_id}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "422": {
+      "description": "The edit request violates data policy",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "data-policy-violation": {
+          "value": {
+           "code": "data-policy-violation",
+           "message": "Edit violates data policy",
+           "context": {
+            "violation": "{violation_code}",
+            "violation_context": {
+             "some": "context"
+            }
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "operationId": "deleteItemLabel",
+    "tags": [
+     "labels"
+    ],
+    "summary": "Delete an Item's label in a specific language",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "in": "path",
+      "name": "language_code",
+      "description": "The requested resource language",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[a-z]{2}[a-z0-9-]*$"
+      },
+      "example": "en"
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Modified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "Authorization",
+      "in": "header",
+      "description": "Make authenticated request using a provided bearer token",
+      "schema": {
+       "type": "string"
+      },
+      "example": "Bearer mF_9.B5f-4.1JqM"
+     }
+    ],
+    "requestBody": {
+     "description": "Edit payload containing edit metadata",
+     "required": false,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "default": []
+         },
+         "bot": {
+          "type": "boolean",
+          "default": false
+         },
+         "comment": {
+          "type": "string"
+         }
+        }
+       },
+       "example": {
+        "tags": [],
+        "bot": false,
+        "comment": "Example edit using the Wikibase REST API"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The resource was deleted",
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which response is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        },
+        "example": "Label deleted"
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "409": {
+      "description": "The specified Item was redirected",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "redirected-item": {
+          "value": {
+           "code": "redirected-item",
+           "message": "Item {item_id} has been redirected to {redirect_target_id}",
+           "context": {
+            "redirect_target": "{redirect_target_id}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   }
   },
-  "body_fields": [
-   "bot",
-   "comment",
-   "statement",
-   "tags"
-  ],
-  "body_required": [
-   "statement"
-  ]
- },
- "deleteItemDescription": {
-  "method": "DELETE",
-  "path": "/v1/entities/items/{item_id}/descriptions/{language_code}",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$",
-   "language_code": "^[a-z]{2}[a-z0-9-]*$"
+  "/v1/entities/items/{item_id}/descriptions/{language_code}": {
+   "put": {
+    "operationId": "replaceItemDescription",
+    "tags": [
+     "descriptions"
+    ],
+    "summary": "Add / Replace an Item's description in a specific language",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "in": "path",
+      "name": "language_code",
+      "description": "The requested resource language",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[a-z]{2}[a-z0-9-]*$"
+      },
+      "example": "en"
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Modified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "Authorization",
+      "in": "header",
+      "description": "Make authenticated request using a provided bearer token",
+      "schema": {
+       "type": "string"
+      },
+      "example": "Bearer mF_9.B5f-4.1JqM"
+     }
+    ],
+    "requestBody": {
+     "description": "Payload containing Item description in the specified language and edit metadata",
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "description": {
+          "type": "string"
+         },
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "default": []
+         },
+         "bot": {
+          "type": "boolean",
+          "default": false
+         },
+         "comment": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "description"
+        ]
+       },
+       "example": {
+        "description": "famous person",
+        "tags": [],
+        "bot": false,
+        "comment": "set English description"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The updated description",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        },
+        "example": "famous person"
+       }
+      }
+     },
+     "201": {
+      "description": "The newly added description",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        },
+        "example": "famous person"
+       }
+      }
+     },
+     "304": {
+      "description": "The specified resource has not been modified since last provided revision number or date",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "missing-field": {
+          "value": {
+           "code": "missing-field",
+           "message": "Required field missing",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "field": "{missing_field}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         },
+         "resource-too-large": {
+          "value": {
+           "code": "resource-too-large",
+           "message": "Edit resulted in a resource that exceeds the size limit of {configured_limit}",
+           "context": {
+            "limit": "configured_limit_as_int"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "409": {
+      "description": "The specified Item was redirected",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "redirected-item": {
+          "value": {
+           "code": "redirected-item",
+           "message": "Item {item_id} has been redirected to {redirect_target_id}",
+           "context": {
+            "redirect_target": "{redirect_target_id}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "422": {
+      "description": "The edit request violates data policy",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "data-policy-violation": {
+          "value": {
+           "code": "data-policy-violation",
+           "message": "Edit violates data policy",
+           "context": {
+            "violation": "{violation_code}",
+            "violation_context": {
+             "some": "context"
+            }
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "operationId": "deleteItemDescription",
+    "tags": [
+     "descriptions"
+    ],
+    "summary": "Delete an Item's description in a specific language",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "in": "path",
+      "name": "language_code",
+      "description": "The requested resource language",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[a-z]{2}[a-z0-9-]*$"
+      },
+      "example": "en"
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Modified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "Authorization",
+      "in": "header",
+      "description": "Make authenticated request using a provided bearer token",
+      "schema": {
+       "type": "string"
+      },
+      "example": "Bearer mF_9.B5f-4.1JqM"
+     }
+    ],
+    "requestBody": {
+     "description": "Edit payload containing edit metadata",
+     "required": false,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "default": []
+         },
+         "bot": {
+          "type": "boolean",
+          "default": false
+         },
+         "comment": {
+          "type": "string"
+         }
+        }
+       },
+       "example": {
+        "tags": [],
+        "bot": false,
+        "comment": "Example edit using the Wikibase REST API"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The description was deleted",
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which response is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        },
+        "example": "Description deleted"
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "409": {
+      "description": "The specified Item was redirected",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "redirected-item": {
+          "value": {
+           "code": "redirected-item",
+           "message": "Item {item_id} has been redirected to {redirect_target_id}",
+           "context": {
+            "redirect_target": "{redirect_target_id}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   }
   },
-  "body_fields": [
-   "bot",
-   "comment",
-   "tags"
-  ],
-  "body_required": []
- },
- "deleteItemLabel": {
-  "method": "DELETE",
-  "path": "/v1/entities/items/{item_id}/labels/{language_code}",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$",
-   "language_code": "^[a-z]{2}[a-z0-9-]*$"
+  "/v1/entities/items/{item_id}/aliases/{language_code}": {
+   "post": {
+    "operationId": "addItemAliasesInLanguage",
+    "tags": [
+     "aliases"
+    ],
+    "summary": "Create / Add an Item's aliases in a specific language",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "in": "path",
+      "name": "language_code",
+      "description": "The requested resource language",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[a-z]{2}[a-z0-9-]*$"
+      },
+      "example": "en"
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Modified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "Authorization",
+      "in": "header",
+      "description": "Make authenticated request using a provided bearer token",
+      "schema": {
+       "type": "string"
+      },
+      "example": "Bearer mF_9.B5f-4.1JqM"
+     }
+    ],
+    "requestBody": {
+     "description": "Payload containing a list of Item aliases in the specified language and edit metadata",
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "aliases": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "default": []
+         },
+         "bot": {
+          "type": "boolean",
+          "default": false
+         },
+         "comment": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "aliases"
+        ]
+       },
+       "example": {
+        "aliases": [
+         "JD"
+        ],
+        "tags": [],
+        "bot": false,
+        "comment": "Add English alias"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The updated list of aliases in a specific language",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "example": [
+         "Jane M. Doe",
+         "JD"
+        ]
+       }
+      }
+     },
+     "201": {
+      "description": "The newly created list of aliases in a specific language",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "example": [
+         "Jane M. Doe",
+         "JD"
+        ]
+       }
+      }
+     },
+     "304": {
+      "description": "The specified resource has not been modified since last provided revision number or date",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "missing-field": {
+          "value": {
+           "code": "missing-field",
+           "message": "Required field missing",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "field": "{missing_field}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         },
+         "resource-too-large": {
+          "value": {
+           "code": "resource-too-large",
+           "message": "Edit resulted in a resource that exceeds the size limit of {configured_limit}",
+           "context": {
+            "limit": "configured_limit_as_int"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "409": {
+      "description": "The specified Item was redirected",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "redirected-item": {
+          "value": {
+           "code": "redirected-item",
+           "message": "Item {item_id} has been redirected to {redirect_target_id}",
+           "context": {
+            "redirect_target": "{redirect_target_id}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   }
   },
-  "body_fields": [
-   "bot",
-   "comment",
-   "tags"
-  ],
-  "body_required": []
- },
- "deleteItemStatement": {
-  "method": "DELETE",
-  "path": "/v1/entities/items/{item_id}/statements/{statement_id}",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$",
-   "statement_id": "^(Q|q)[1-9]\\d{0,9}\\$.+$"
+  "/v1/entities/items/{item_id}/statements": {
+   "post": {
+    "operationId": "addItemStatement",
+    "tags": [
+     "statements"
+    ],
+    "summary": "Add a new Statement to an Item",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     }
+    ],
+    "requestBody": {
+     "description": "Payload containing a Wikibase Statement object and edit metadata",
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "allOf": [
+         {
+          "type": "object",
+          "properties": {
+           "statement": {
+            "allOf": [
+             {
+              "type": "object",
+              "properties": {
+               "id": {
+                "description": "The globally unique identifier for this Statement",
+                "type": "string",
+                "readOnly": true
+               },
+               "rank": {
+                "description": "The rank of the Statement",
+                "type": "string",
+                "enum": [
+                 "deprecated",
+                 "normal",
+                 "preferred"
+                ],
+                "default": "normal"
+               },
+               "property": {
+                "type": "object",
+                "properties": {
+                 "id": {
+                  "description": "The ID of the Property",
+                  "type": "string"
+                 },
+                 "data_type": {
+                  "description": "The data type of the Property",
+                  "type": [
+                   "string",
+                   "null"
+                  ],
+                  "readOnly": true
+                 }
+                }
+               },
+               "value": {
+                "type": "object",
+                "properties": {
+                 "content": {
+                  "description": "The value, if type == \"value\", otherwise omitted"
+                 },
+                 "type": {
+                  "description": "The value type",
+                  "type": "string",
+                  "enum": [
+                   "value",
+                   "somevalue",
+                   "novalue"
+                  ]
+                 }
+                }
+               },
+               "qualifiers": {
+                "type": "array",
+                "items": {
+                 "type": "object",
+                 "properties": {
+                  "property": {
+                   "type": "object",
+                   "properties": {
+                    "id": {
+                     "description": "The ID of the Property",
+                     "type": "string"
+                    },
+                    "data_type": {
+                     "description": "The data type of the Property",
+                     "type": [
+                      "string",
+                      "null"
+                     ],
+                     "readOnly": true
+                    }
+                   }
+                  },
+                  "value": {
+                   "type": "object",
+                   "properties": {
+                    "content": {
+                     "description": "The value, if type == \"value\", otherwise omitted"
+                    },
+                    "type": {
+                     "description": "The value type",
+                     "type": "string",
+                     "enum": [
+                      "value",
+                      "somevalue",
+                      "novalue"
+                     ]
+                    }
+                   }
+                  }
+                 }
+                },
+                "default": []
+               },
+               "references": {
+                "type": "array",
+                "items": {
+                 "type": "object",
+                 "properties": {
+                  "hash": {
+                   "description": "Hash of the Reference",
+                   "type": "string",
+                   "readOnly": true
+                  },
+                  "parts": {
+                   "type": "array",
+                   "items": {
+                    "type": "object",
+                    "properties": {
+                     "property": {
+                      "type": "object",
+                      "properties": {
+                       "id": {
+                        "description": "The ID of the Property",
+                        "type": "string"
+                       },
+                       "data_type": {
+                        "description": "The data type of the Property",
+                        "type": [
+                         "string",
+                         "null"
+                        ],
+                        "readOnly": true
+                       }
+                      }
+                     },
+                     "value": {
+                      "type": "object",
+                      "properties": {
+                       "content": {
+                        "description": "The value, if type == \"value\", otherwise omitted"
+                       },
+                       "type": {
+                        "description": "The value type",
+                        "type": "string",
+                        "enum": [
+                         "value",
+                         "somevalue",
+                         "novalue"
+                        ]
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 }
+                },
+                "default": []
+               }
+              }
+             },
+             {
+              "allOf": [
+               {
+                "properties": {
+                 "property": {
+                  "required": [
+                   "id"
+                  ]
+                 },
+                 "value": {
+                  "required": [
+                   "type"
+                  ]
+                 }
+                },
+                "required": [
+                 "property",
+                 "value"
+                ]
+               },
+               {
+                "properties": {
+                 "qualifiers": {
+                  "items": {
+                   "properties": {
+                    "property": {
+                     "required": [
+                      "id"
+                     ]
+                    },
+                    "value": {
+                     "required": [
+                      "type"
+                     ]
+                    }
+                   },
+                   "required": [
+                    "property",
+                    "value"
+                   ]
+                  }
+                 },
+                 "references": {
+                  "items": {
+                   "properties": {
+                    "parts": {
+                     "items": {
+                      "properties": {
+                       "property": {
+                        "required": [
+                         "id"
+                        ]
+                       },
+                       "value": {
+                        "required": [
+                         "type"
+                        ]
+                       }
+                      },
+                      "required": [
+                       "property",
+                       "value"
+                      ]
+                     }
+                    }
+                   },
+                   "required": [
+                    "parts"
+                   ]
+                  }
+                 }
+                }
+               }
+              ]
+             }
+            ]
+           }
+          },
+          "required": [
+           "statement"
+          ]
+         },
+         {
+          "type": "object",
+          "properties": {
+           "tags": {
+            "type": "array",
+            "items": {
+             "type": "string"
+            },
+            "default": []
+           },
+           "bot": {
+            "type": "boolean",
+            "default": false
+           },
+           "comment": {
+            "type": "string"
+           }
+          }
+         }
+        ]
+       },
+       "example": {
+        "statement": {
+         "property": {
+          "id": "P17"
+         },
+         "value": {
+          "type": "value",
+          "content": "Senior Team Supervisor"
+         },
+         "qualifiers": [
+          {
+           "property": {
+            "id": "P706"
+           },
+           "value": {
+            "type": "value",
+            "content": {
+             "time": "+2023-06-13T00:00:00Z",
+             "precision": 11,
+             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            }
+           }
+          }
+         ],
+         "references": [
+          {
+           "parts": [
+            {
+             "property": {
+              "id": "P709"
+             },
+             "value": {
+              "type": "value",
+              "content": "https://news.example.org"
+             }
+            }
+           ]
+          }
+         ]
+        },
+        "tags": [],
+        "bot": false,
+        "comment": "Example edit using the Wikibase REST API"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "The newly created Statement. Please note that the value of the `ETag` header field refers to the Item's revision ID.",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Location": {
+        "description": "The URI of the newly created Statement",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "allOf": [
+          {
+           "type": "object",
+           "properties": {
+            "id": {
+             "description": "The globally unique identifier for this Statement",
+             "type": "string",
+             "readOnly": true
+            },
+            "rank": {
+             "description": "The rank of the Statement",
+             "type": "string",
+             "enum": [
+              "deprecated",
+              "normal",
+              "preferred"
+             ],
+             "default": "normal"
+            },
+            "property": {
+             "type": "object",
+             "properties": {
+              "id": {
+               "description": "The ID of the Property",
+               "type": "string"
+              },
+              "data_type": {
+               "description": "The data type of the Property",
+               "type": [
+                "string",
+                "null"
+               ],
+               "readOnly": true
+              }
+             }
+            },
+            "value": {
+             "type": "object",
+             "properties": {
+              "content": {
+               "description": "The value, if type == \"value\", otherwise omitted"
+              },
+              "type": {
+               "description": "The value type",
+               "type": "string",
+               "enum": [
+                "value",
+                "somevalue",
+                "novalue"
+               ]
+              }
+             }
+            },
+            "qualifiers": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "property": {
+                "type": "object",
+                "properties": {
+                 "id": {
+                  "description": "The ID of the Property",
+                  "type": "string"
+                 },
+                 "data_type": {
+                  "description": "The data type of the Property",
+                  "type": [
+                   "string",
+                   "null"
+                  ],
+                  "readOnly": true
+                 }
+                }
+               },
+               "value": {
+                "type": "object",
+                "properties": {
+                 "content": {
+                  "description": "The value, if type == \"value\", otherwise omitted"
+                 },
+                 "type": {
+                  "description": "The value type",
+                  "type": "string",
+                  "enum": [
+                   "value",
+                   "somevalue",
+                   "novalue"
+                  ]
+                 }
+                }
+               }
+              }
+             },
+             "default": []
+            },
+            "references": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "hash": {
+                "description": "Hash of the Reference",
+                "type": "string",
+                "readOnly": true
+               },
+               "parts": {
+                "type": "array",
+                "items": {
+                 "type": "object",
+                 "properties": {
+                  "property": {
+                   "type": "object",
+                   "properties": {
+                    "id": {
+                     "description": "The ID of the Property",
+                     "type": "string"
+                    },
+                    "data_type": {
+                     "description": "The data type of the Property",
+                     "type": [
+                      "string",
+                      "null"
+                     ],
+                     "readOnly": true
+                    }
+                   }
+                  },
+                  "value": {
+                   "type": "object",
+                   "properties": {
+                    "content": {
+                     "description": "The value, if type == \"value\", otherwise omitted"
+                    },
+                    "type": {
+                     "description": "The value type",
+                     "type": "string",
+                     "enum": [
+                      "value",
+                      "somevalue",
+                      "novalue"
+                     ]
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             },
+             "default": []
+            }
+           }
+          },
+          {
+           "allOf": [
+            {
+             "properties": {
+              "property": {
+               "required": [
+                "id",
+                "data_type"
+               ]
+              },
+              "value": {
+               "required": [
+                "type"
+               ]
+              }
+             },
+             "required": [
+              "property",
+              "value"
+             ]
+            },
+            {
+             "properties": {
+              "qualifiers": {
+               "items": {
+                "properties": {
+                 "property": {
+                  "required": [
+                   "id",
+                   "data_type"
+                  ]
+                 },
+                 "value": {
+                  "required": [
+                   "type"
+                  ]
+                 }
+                },
+                "required": [
+                 "property",
+                 "value"
+                ]
+               }
+              },
+              "references": {
+               "items": {
+                "properties": {
+                 "hash": {
+                  "type": "string"
+                 },
+                 "parts": {
+                  "items": {
+                   "properties": {
+                    "property": {
+                     "required": [
+                      "id",
+                      "data_type"
+                     ]
+                    },
+                    "value": {
+                     "required": [
+                      "type"
+                     ]
+                    }
+                   },
+                   "required": [
+                    "property",
+                    "value"
+                   ]
+                  }
+                 }
+                },
+                "required": [
+                 "hash",
+                 "parts"
+                ]
+               }
+              }
+             },
+             "required": [
+              "id",
+              "rank",
+              "qualifiers",
+              "references"
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        "example": {
+         "id": "Q24$9966A1CA-F3F5-4B1D-A534-7CD5953169DA",
+         "rank": "normal",
+         "property": {
+          "id": "P17",
+          "data_type": "string"
+         },
+         "value": {
+          "type": "value",
+          "content": "Senior Team Supervisor"
+         },
+         "qualifiers": [
+          {
+           "property": {
+            "id": "P706",
+            "data_type": "time"
+           },
+           "value": {
+            "type": "value",
+            "content": {
+             "time": "+2023-06-13T00:00:00Z",
+             "precision": 11,
+             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            }
+           }
+          }
+         ],
+         "references": [
+          {
+           "hash": "7ccd777f870b71a4c5056c7fd2a83a22cc39be6d",
+           "parts": [
+            {
+             "property": {
+              "id": "P709",
+              "data_type": "url"
+             },
+             "value": {
+              "type": "value",
+              "content": "https://news.example.org"
+             }
+            }
+           ]
+          }
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "missing-field": {
+          "value": {
+           "code": "missing-field",
+           "message": "Required field missing",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "field": "{missing_field}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         },
+         "resource-too-large": {
+          "value": {
+           "code": "resource-too-large",
+           "message": "Edit resulted in a resource that exceeds the size limit of {configured_limit}",
+           "context": {
+            "limit": "configured_limit_as_int"
+           }
+          }
+         },
+         "referenced-resource-not-found": {
+          "value": {
+           "code": "referenced-resource-not-found",
+           "message": "The referenced resource does not exist",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "409": {
+      "description": "The specified Item was redirected",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "redirected-item": {
+          "value": {
+           "code": "redirected-item",
+           "message": "Item {item_id} has been redirected to {redirect_target_id}",
+           "context": {
+            "redirect_target": "{redirect_target_id}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   }
   },
-  "body_fields": [
-   "bot",
-   "comment",
-   "tags"
-  ],
-  "body_required": []
- },
- "patchItemStatement": {
-  "method": "PATCH",
-  "path": "/v1/entities/items/{item_id}/statements/{statement_id}",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$",
-   "statement_id": "^(Q|q)[1-9]\\d{0,9}\\$.+$"
-  },
-  "body_fields": [
-   "bot",
-   "comment",
-   "patch",
-   "tags"
-  ],
-  "body_required": [
-   "patch"
-  ]
- },
- "replaceItemDescription": {
-  "method": "PUT",
-  "path": "/v1/entities/items/{item_id}/descriptions/{language_code}",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$",
-   "language_code": "^[a-z]{2}[a-z0-9-]*$"
-  },
-  "body_fields": [
-   "bot",
-   "comment",
-   "description",
-   "tags"
-  ],
-  "body_required": [
-   "description"
-  ]
- },
- "replaceItemLabel": {
-  "method": "PUT",
-  "path": "/v1/entities/items/{item_id}/labels/{language_code}",
-  "path_params": {
-   "item_id": "^Q[1-9]\\d{0,9}$",
-   "language_code": "^[a-z]{2}[a-z0-9-]*$"
-  },
-  "body_fields": [
-   "bot",
-   "comment",
-   "label",
-   "tags"
-  ],
-  "body_required": [
-   "label"
-  ]
+  "/v1/entities/items/{item_id}/statements/{statement_id}": {
+   "patch": {
+    "operationId": "patchItemStatement",
+    "tags": [
+     "statements"
+    ],
+    "summary": "Change elements of a single Statement of an Item",
+    "description": "This endpoint is also accessible through `/statements/{statement_id}`.",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "in": "path",
+      "name": "statement_id",
+      "description": "The ID of a Statement on an Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^(Q|q)[1-9]\\d{0,9}\\$.+$"
+      },
+      "example": "Q24$9966A1CA-F3F5-4B1D-A534-7CD5953169DA"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     }
+    ],
+    "requestBody": {
+     "description": "Payload containing a JSON Patch document to be applied to the Statement and edit metadata",
+     "required": true,
+     "content": {
+      "application/json-patch+json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "patch": {
+          "description": "A JSON Patch document as defined by RFC 6902",
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "op": {
+             "description": "The operation to perform",
+             "type": "string",
+             "enum": [
+              "add",
+              "copy",
+              "move",
+              "remove",
+              "replace",
+              "test"
+             ]
+            },
+            "path": {
+             "description": "A JSON Pointer",
+             "type": "string"
+            },
+            "from": {
+             "description": "A JSON Pointer",
+             "type": "string"
+            },
+            "value": {
+             "description": "The value to be used within the operation"
+            }
+           },
+           "required": [
+            "op",
+            "path"
+           ]
+          }
+         },
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "default": []
+         },
+         "bot": {
+          "type": "boolean",
+          "default": false
+         },
+         "comment": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "patch"
+        ]
+       },
+       "example": {
+        "patch": [
+         {
+          "op": "add",
+          "path": "/references/-",
+          "value": {
+           "parts": [
+            {
+             "property": {
+              "id": "P709"
+             },
+             "value": {
+              "type": "value",
+              "content": "https://news.example.org"
+             }
+            }
+           ]
+          }
+         }
+        ],
+        "tags": [],
+        "bot": false,
+        "comment": "Add reference to Statement"
+       }
+      },
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "patch": {
+          "description": "A JSON Patch document as defined by RFC 6902",
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "op": {
+             "description": "The operation to perform",
+             "type": "string",
+             "enum": [
+              "add",
+              "copy",
+              "move",
+              "remove",
+              "replace",
+              "test"
+             ]
+            },
+            "path": {
+             "description": "A JSON Pointer",
+             "type": "string"
+            },
+            "from": {
+             "description": "A JSON Pointer",
+             "type": "string"
+            },
+            "value": {
+             "description": "The value to be used within the operation"
+            }
+           },
+           "required": [
+            "op",
+            "path"
+           ]
+          }
+         },
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "default": []
+         },
+         "bot": {
+          "type": "boolean",
+          "default": false
+         },
+         "comment": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "patch"
+        ]
+       },
+       "example": {
+        "patch": [
+         {
+          "op": "add",
+          "path": "/references/-",
+          "value": {
+           "parts": [
+            {
+             "property": {
+              "id": "P709"
+             },
+             "value": {
+              "type": "value",
+              "content": "https://news.example.org"
+             }
+            }
+           ]
+          }
+         }
+        ],
+        "tags": [],
+        "bot": false,
+        "comment": "Add reference to Statement"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "A Wikibase Statement. Please note that the value of the `ETag` header field refers to the Item's revision ID.",
+      "headers": {
+       "ETag": {
+        "description": "Last entity revision number",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "Last-Modified": {
+        "description": "Last modified date",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "allOf": [
+          {
+           "type": "object",
+           "properties": {
+            "id": {
+             "description": "The globally unique identifier for this Statement",
+             "type": "string",
+             "readOnly": true
+            },
+            "rank": {
+             "description": "The rank of the Statement",
+             "type": "string",
+             "enum": [
+              "deprecated",
+              "normal",
+              "preferred"
+             ],
+             "default": "normal"
+            },
+            "property": {
+             "type": "object",
+             "properties": {
+              "id": {
+               "description": "The ID of the Property",
+               "type": "string"
+              },
+              "data_type": {
+               "description": "The data type of the Property",
+               "type": [
+                "string",
+                "null"
+               ],
+               "readOnly": true
+              }
+             }
+            },
+            "value": {
+             "type": "object",
+             "properties": {
+              "content": {
+               "description": "The value, if type == \"value\", otherwise omitted"
+              },
+              "type": {
+               "description": "The value type",
+               "type": "string",
+               "enum": [
+                "value",
+                "somevalue",
+                "novalue"
+               ]
+              }
+             }
+            },
+            "qualifiers": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "property": {
+                "type": "object",
+                "properties": {
+                 "id": {
+                  "description": "The ID of the Property",
+                  "type": "string"
+                 },
+                 "data_type": {
+                  "description": "The data type of the Property",
+                  "type": [
+                   "string",
+                   "null"
+                  ],
+                  "readOnly": true
+                 }
+                }
+               },
+               "value": {
+                "type": "object",
+                "properties": {
+                 "content": {
+                  "description": "The value, if type == \"value\", otherwise omitted"
+                 },
+                 "type": {
+                  "description": "The value type",
+                  "type": "string",
+                  "enum": [
+                   "value",
+                   "somevalue",
+                   "novalue"
+                  ]
+                 }
+                }
+               }
+              }
+             },
+             "default": []
+            },
+            "references": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "hash": {
+                "description": "Hash of the Reference",
+                "type": "string",
+                "readOnly": true
+               },
+               "parts": {
+                "type": "array",
+                "items": {
+                 "type": "object",
+                 "properties": {
+                  "property": {
+                   "type": "object",
+                   "properties": {
+                    "id": {
+                     "description": "The ID of the Property",
+                     "type": "string"
+                    },
+                    "data_type": {
+                     "description": "The data type of the Property",
+                     "type": [
+                      "string",
+                      "null"
+                     ],
+                     "readOnly": true
+                    }
+                   }
+                  },
+                  "value": {
+                   "type": "object",
+                   "properties": {
+                    "content": {
+                     "description": "The value, if type == \"value\", otherwise omitted"
+                    },
+                    "type": {
+                     "description": "The value type",
+                     "type": "string",
+                     "enum": [
+                      "value",
+                      "somevalue",
+                      "novalue"
+                     ]
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             },
+             "default": []
+            }
+           }
+          },
+          {
+           "allOf": [
+            {
+             "properties": {
+              "property": {
+               "required": [
+                "id",
+                "data_type"
+               ]
+              },
+              "value": {
+               "required": [
+                "type"
+               ]
+              }
+             },
+             "required": [
+              "property",
+              "value"
+             ]
+            },
+            {
+             "properties": {
+              "qualifiers": {
+               "items": {
+                "properties": {
+                 "property": {
+                  "required": [
+                   "id",
+                   "data_type"
+                  ]
+                 },
+                 "value": {
+                  "required": [
+                   "type"
+                  ]
+                 }
+                },
+                "required": [
+                 "property",
+                 "value"
+                ]
+               }
+              },
+              "references": {
+               "items": {
+                "properties": {
+                 "hash": {
+                  "type": "string"
+                 },
+                 "parts": {
+                  "items": {
+                   "properties": {
+                    "property": {
+                     "required": [
+                      "id",
+                      "data_type"
+                     ]
+                    },
+                    "value": {
+                     "required": [
+                      "type"
+                     ]
+                    }
+                   },
+                   "required": [
+                    "property",
+                    "value"
+                   ]
+                  }
+                 }
+                },
+                "required": [
+                 "hash",
+                 "parts"
+                ]
+               }
+              }
+             },
+             "required": [
+              "id",
+              "rank",
+              "qualifiers",
+              "references"
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        "example": {
+         "id": "Q24$9966A1CA-F3F5-4B1D-A534-7CD5953169DA",
+         "rank": "normal",
+         "property": {
+          "id": "P17",
+          "data_type": "string"
+         },
+         "value": {
+          "type": "value",
+          "content": "Senior Team Supervisor"
+         },
+         "qualifiers": [
+          {
+           "property": {
+            "id": "P706",
+            "data_type": "time"
+           },
+           "value": {
+            "type": "value",
+            "content": {
+             "time": "+2023-06-13T00:00:00Z",
+             "precision": 11,
+             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            }
+           }
+          }
+         ],
+         "references": [
+          {
+           "hash": "7ccd777f870b71a4c5056c7fd2a83a22cc39be6d",
+           "parts": [
+            {
+             "property": {
+              "id": "P709",
+              "data_type": "url"
+             },
+             "value": {
+              "type": "value",
+              "content": "https://news.example.org"
+             }
+            }
+           ]
+          }
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "The provided JSON Patch is invalid",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "item-statement-id-mismatch": {
+          "value": {
+           "code": "item-statement-id-mismatch",
+           "message": "IDs of the Item and the Statement do not match",
+           "context": {
+            "item_id": "{item_id}",
+            "statement_id": "{statement_id}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "missing-field": {
+          "value": {
+           "code": "missing-field",
+           "message": "Required field missing",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "field": "{missing_field}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         },
+         "resource-too-large": {
+          "value": {
+           "code": "resource-too-large",
+           "message": "Edit resulted in a resource that exceeds the size limit of {configured_limit}",
+           "context": {
+            "limit": "configured_limit_as_int"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "409": {
+      "description": "The provided JSON Patch cannot be applied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "patch-test-failed": {
+          "value": {
+           "code": "patch-test-failed",
+           "message": "Test operation in the provided patch failed",
+           "context": {
+            "path": "{json_pointer_to_patch_operation}",
+            "actual_value": "actual value"
+           }
+          }
+         },
+         "patch-target-not-found": {
+          "value": {
+           "code": "patch-target-not-found",
+           "message": "Target not found on resource",
+           "context": {
+            "path": "{json_pointer_to_target_in_patch}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "422": {
+      "description": "Applying the provided JSON Patch results in an invalid Statement",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "patch-result-missing-field": {
+          "value": {
+           "code": "patch-result-missing-field",
+           "message": "Required field missing in patch result",
+           "context": {
+            "path": "{json_pointer_to_parent}",
+            "field": "{missing_field}"
+           }
+          }
+         },
+         "patch-result-invalid-value": {
+          "value": {
+           "code": "patch-result-invalid-value",
+           "message": "Invalid value in patch result",
+           "context": {
+            "value": "{value}",
+            "path": "{path}"
+           }
+          }
+         },
+         "patch-result-modified-read-only-value": {
+          "value": {
+           "code": "patch-result-modified-read-only-value",
+           "message": "Read only value in patch result cannot be modified",
+           "context": {
+            "path": "{json_pointer_to_readonly_value}"
+           }
+          }
+         },
+         "patch-result-referenced-resource-not-found": {
+          "value": {
+           "code": "patch-result-referenced-resource-not-found",
+           "message": "The referenced resource does not exist",
+           "context": {
+            "path": "{json_pointer_to_missing_resource_in_patch_result}",
+            "value": "{value}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "operationId": "deleteItemStatement",
+    "tags": [
+     "statements"
+    ],
+    "summary": "Delete a single Statement from an Item",
+    "description": "This endpoint is also accessible through `/statements/{statement_id}`",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "description": "The ID of the required Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^Q[1-9]\\d{0,9}$"
+      },
+      "example": "Q24"
+     },
+     {
+      "in": "path",
+      "name": "statement_id",
+      "description": "The ID of a Statement on an Item",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^(Q|q)[1-9]\\d{0,9}\\$.+$"
+      },
+      "example": "Q24$9966A1CA-F3F5-4B1D-A534-7CD5953169DA"
+     },
+     {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified since one of the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-None-Match",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has been modified since the specified entity revision numbers",
+      "schema": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(?:\".+\"|\\*)$"
+       }
+      },
+      "example": [
+       "\"1276705620\""
+      ]
+     },
+     {
+      "name": "If-Unmodified-Since",
+      "in": "header",
+      "description": "Conditionally perform the request only if the resource has not been modified after the specified date",
+      "schema": {
+       "type": "string",
+       "format": "http-date"
+      },
+      "example": "Sat, 06 Jun 2020 16:38:47 GMT"
+     }
+    ],
+    "requestBody": {
+     "description": "Edit payload containing edit metadata",
+     "required": false,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "tags": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "default": []
+         },
+         "bot": {
+          "type": "boolean",
+          "default": false
+         },
+         "comment": {
+          "type": "string"
+         }
+        }
+       },
+       "example": {
+        "tags": [],
+        "bot": false,
+        "comment": "Example edit using the Wikibase REST API"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "The requested Statement was deleted",
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which response is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       },
+       "X-Authenticated-User": {
+        "description": "Optional username of the user making the request",
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "string"
+        },
+        "example": "Statement deleted"
+       }
+      }
+     },
+     "400": {
+      "description": "The request cannot be processed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "invalid-path-parameter": {
+          "value": {
+           "code": "invalid-path-parameter",
+           "message": "Invalid path parameter: '{path_parameter}'",
+           "context": {
+            "parameter": "{path_parameter}"
+           }
+          }
+         },
+         "item-statement-id-mismatch": {
+          "value": {
+           "code": "item-statement-id-mismatch",
+           "message": "IDs of the Item and the Statement do not match",
+           "context": {
+            "item_id": "{item_id}",
+            "statement_id": "{statement_id}"
+           }
+          }
+         },
+         "invalid-value": {
+          "value": {
+           "code": "invalid-value",
+           "message": "Invalid value at '{json_pointer}'",
+           "context": {
+            "path": "{json_pointer}"
+           }
+          }
+         },
+         "value-too-long": {
+          "value": {
+           "code": "value-too-long",
+           "message": "The input value is too long",
+           "context": {
+            "path": "{json_pointer_to_element}",
+            "limit": "{configured_limit}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "403": {
+      "description": "The access to resource was denied",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "permission-denied": {
+          "value": {
+           "code": "permission-denied",
+           "message": "Access to resource is denied",
+           "context": {
+            "denial_reason": "{reason_code}",
+            "denial_context": "{additional_context}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "404": {
+      "description": "The specified resource was not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "resource-not-found": {
+          "value": {
+           "code": "resource-not-found",
+           "message": "The requested resource does not exist",
+           "context": {
+            "resource_type": "{resource_type}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "412": {
+      "description": "The condition defined by a conditional request header is not fulfilled"
+     },
+     "429": {
+      "description": "Too many requests",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "examples": {
+         "request-limit-reached": {
+          "value": {
+           "code": "request-limit-reached",
+           "message": "Exceeded the limit of actions that can be performed in a given span of time",
+           "context": {
+            "reason": "{reason_code}"
+           }
+          }
+         }
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     },
+     "500": {
+      "description": "An unexpected error has occurred",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "code": {
+           "type": "string"
+          },
+          "message": {
+           "type": "string"
+          },
+          "context": {
+           "type": "object"
+          }
+         },
+         "required": [
+          "code",
+          "message"
+         ]
+        },
+        "example": {
+         "code": "unexpected-error",
+         "message": "Unexpected Error"
+        }
+       }
+      },
+      "headers": {
+       "Content-Language": {
+        "description": "Language code of the language in which error message is provided",
+        "schema": {
+         "type": "string"
+        },
+        "required": true
+       }
+      }
+     }
+    }
+   }
+  }
  }
 }

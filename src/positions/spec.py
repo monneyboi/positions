@@ -1,28 +1,25 @@
-"""The Wikibase REST API operations an edit may use, derived from the OpenAPI spec.
+"""The Wikibase REST API operations an edit may use: a filtered OpenAPI spec.
 
 A queued edit names one allowed `operationId` plus the `params` (path
 parameters) and `body` (JSON request body) that operation declares. The
 OpenAPI spec — not project code — defines method, path, parameter
-patterns, and body fields; both validation (proposals.py) and submission
-(wikidata.py) read them from the generated `data/operations.json`. The
-only policy is ALLOWED: operations not listed cannot be queued. Notably
-absent: `patchItem` (its positional statement paths can silently hit the
-wrong statement when live order shifts) and `replaceItemStatement` /
-`replaceStatement` (wholesale clobbering).
+patterns, and body fields: `data/operations.json` is the live spec with
+every operation outside ALLOWED removed, otherwise verbatim, and both
+validation (proposals.py) and submission (wikidata.py) read straight
+from it. ALLOWED is the only policy. Notably absent: `patchItem` (its
+positional statement paths can silently hit the wrong statement when
+live order shifts) and `replaceItemStatement` / `replaceStatement`
+(wholesale clobbering).
 
-`data/operations.json` is a generated artifact, extracted from the live
-spec (Wikidata's Stable Interface Policy covers v1). Refresh it — and
-review the diff, which shows exactly what changed in the contract edits
-rely on — with:
+Refresh (Wikidata's Stable Interface Policy covers v1) — the diff shows
+exactly what changed in the contract edits rely on:
 
     uv run python -m positions.spec
 """
 
 import json
-import re
 from functools import cache
 from pathlib import Path
-from typing import NamedTuple
 
 DATA_PATH = Path(__file__).parent / "data" / "operations.json"
 SPEC_URL = "https://www.wikidata.org/w/rest.php/wikibase/v1/openapi.json"
@@ -48,73 +45,51 @@ ENTITY_PARAMS = ("item_id", "statement_id", "property_id")
 
 
 class SpecError(Exception):
-    """The generated operations data is missing or out of date."""
-
-
-class Operation(NamedTuple):
-    """One allowed REST operation, from the generated operations data."""
-
-    method: str  # uppercase HTTP verb
-    path: str  # "/v1/entities/items/{item_id}/..." (str.format template)
-    path_params: dict[str, re.Pattern[str]]  # name -> spec validation pattern
-    body_fields: frozenset[str]  # permitted body keys (incl. METADATA_FIELDS)
-    body_required: frozenset[str]  # body keys the spec marks required
+    """The operations data is missing allowed operations; refresh it."""
 
 
 @cache
-def operations() -> dict[str, Operation]:
-    """The allowed operations, keyed by operationId."""
-    raw = json.loads(DATA_PATH.read_text())
-    missing = set(ALLOWED) - set(raw)
+def _operations() -> dict[str, tuple[str, str, dict]]:
+    """Every operation in the data file: operationId -> (method, path, spec op)."""
+    document = json.loads(DATA_PATH.read_text())
+    index = {
+        op["operationId"]: (method, path, op)
+        for path, methods in document["paths"].items()
+        for method, op in methods.items()
+    }
+    missing = set(ALLOWED) - set(index)
     if missing:
         raise SpecError(
             f"{DATA_PATH} is missing {sorted(missing)}; "
             "refresh it with `uv run python -m positions.spec`"
         )
+    return index
+
+
+def lookup(operation_id: str) -> tuple[str, str, dict]:
+    """The operation's HTTP method, path template, and verbatim spec entry."""
+    return _operations()[operation_id]
+
+
+def path_patterns(op: dict) -> dict[str, str]:
+    """The operation's path parameters and their spec validation patterns."""
     return {
-        operation_id: Operation(
-            method=entry["method"],
-            path=entry["path"],
-            path_params={k: re.compile(p) for k, p in entry["path_params"].items()},
-            body_fields=frozenset(entry["body_fields"]),
-            body_required=frozenset(entry["body_required"]),
-        )
-        for operation_id, entry in raw.items()
+        p["name"]: p.get("schema", {}).get("pattern", r"^\S+$")
+        for p in op.get("parameters", [])
+        if p["in"] == "path"
     }
 
 
-def _extract(document: dict) -> dict:
-    """The slim shape of every allowed operation in a full OpenAPI document."""
-    found = {}
-    for path, methods in document["paths"].items():
-        for method, op in methods.items():
-            operation_id = op.get("operationId")
-            if operation_id not in ALLOWED:
-                continue
-            fields: set[str] = set()
-            required: set[str] = set()
-            content = op.get("requestBody", {}).get("content", {})
-            schema = content.get("application/json", {}).get("schema", {})
-            for part in schema.get("allOf", [schema]):  # payload + tags/bot/comment
-                fields.update(part.get("properties", ()))
-                required.update(part.get("required", ()))
-            found[operation_id] = {
-                "method": method.upper(),
-                "path": path,
-                "path_params": {
-                    p["name"]: p.get("schema", {}).get("pattern", r"^\S+$")
-                    for p in op.get("parameters", [])
-                    if p["in"] == "path"
-                },
-                "body_fields": sorted(fields),
-                "body_required": sorted(required),
-            }
-    missing = set(ALLOWED) - set(found)
-    if missing:
-        raise SpecError(
-            f"allowed operations not found in the live spec: {sorted(missing)}"
-        )
-    return {operation_id: found[operation_id] for operation_id in sorted(found)}
+def body_shape(op: dict) -> tuple[frozenset[str], frozenset[str]]:
+    """Permitted and required body fields (the spec's allOf: payload + metadata)."""
+    fields: set[str] = set()
+    required: set[str] = set()
+    content = op.get("requestBody", {}).get("content", {})
+    schema = content.get("application/json", {}).get("schema", {})
+    for part in schema.get("allOf", [schema]):
+        fields.update(part.get("properties", ()))
+        required.update(part.get("required", ()))
+    return frozenset(fields), frozenset(required)
 
 
 def refresh() -> None:
@@ -126,9 +101,23 @@ def refresh() -> None:
         .raise_for_status()
         .json()
     )
-    extracted = _extract(document)
-    DATA_PATH.write_text(json.dumps(extracted, indent=1) + "\n")
-    print(f"wrote {DATA_PATH} ({len(extracted)} operations)")
+    paths = {}
+    for path, methods in document["paths"].items():
+        kept = {
+            method: op
+            for method, op in methods.items()
+            if op.get("operationId") in ALLOWED
+        }
+        if kept:
+            paths[path] = kept
+    found = {op["operationId"] for methods in paths.values() for op in methods.values()}
+    missing = set(ALLOWED) - found
+    if missing:
+        raise SpecError(
+            f"allowed operations not found in the live spec: {sorted(missing)}"
+        )
+    DATA_PATH.write_text(json.dumps({"paths": paths}, indent=1) + "\n")
+    print(f"wrote {DATA_PATH} ({len(found)} operations)")
 
 
 if __name__ == "__main__":
