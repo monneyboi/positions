@@ -101,11 +101,26 @@ Most SPARQL examples on the web target WDQS. When porting them:
   with multiple `P17`/`P1001`/`P31` values otherwise inflate rows.
 - **Boolean coverage checks**: use `BIND(EXISTS { … } AS ?flag)`
   rather than `OPTIONAL` patterns you then have to coalesce.
-- **Anchor on exact classes or known QIDs.** Broad `P31/P279*` sweeps
-  scoped only by `P17`/`P1001` drown in companies, banks, and
-  embassies. When a class path is needed, verify the class roots
-  first: a class query that returns zero rows is a failed query, not
-  evidence of absence — check the root QIDs and say so.
+- **Give queries room, then rewrite.** Match QLever's server timeout
+  with `--max-time 600`; a shorter client abort produces a false
+  "timeout" failure. A query that genuinely needs minutes is a query
+  to narrow, not to wait out.
+- **Fetch labels last.** Restrict to the final rows (`VALUES`, a
+  subquery, or `LIMIT`) before joining `rdfs:label`; unanchored
+  `OPTIONAL` label joins are the classic memory blow-up.
+- **Never guess QIDs.** Anchor only on QIDs you have verified in this
+  session — from a query result or a live REST read. A remembered or
+  assumed QID that is wrong silently poisons every downstream query.
+- **Anchor on exact classes or known QIDs.** Fully unanchored queries
+  time out even on QLever, and broad `P31/P279*` sweeps scoped only by
+  `P17`/`P1001` drown in companies, banks, and embassies. When a class
+  path is needed, verify the class roots first: a class query that
+  returns zero rows is a failed query, not evidence of absence — check
+  the root QIDs and say so.
+- **Label-based discovery hits disambiguation pages.** Searching items
+  by label surfaces disambiguation pages, list articles, and generic
+  occupations alongside real items. Confirm a candidate by its class
+  and links before anchoring on it.
 - **A failed or empty query is information about the query first.**
   QLever rejects some constructs WDQS tolerates (certain variable
   property paths, regex escaping). Simplify, split, or rewrite; when
@@ -121,6 +136,15 @@ For the current state of one entity, GET it from the REST API:
 ```bash
 curl -s https://www.wikidata.org/w/rest.php/wikibase/v1/entities/items/Q…
 ```
+
+The REST API rate-limits: pace single-entity reads instead of bursting
+them, and use QLever for anything bulk. Do not use REST reads to check
+whether the mirror is fresh — it follows the change stream and is
+seconds behind live. If a live entity looks "richer" than a query
+result, the query's `SELECT` was narrower, not the mirror staler:
+profile the item with a `VALUES`-anchored query instead. A throttled
+response (429 or an HTML error page) is not evidence: back off, retry
+once after a pause, and never save the error body as a result file.
 
 The response is where statement GUIDs come from (see the
 `propose-edits` skill): `patchItemStatement` and `deleteItemStatement`

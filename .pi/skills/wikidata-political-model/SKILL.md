@@ -64,9 +64,9 @@ person ── P39 ──> office   (person side: poliloom)
 ## 3. The country spine
 
 Every sovereign country should have these slots filled. The spine is
-the survey and diff target: per slot, an item exists, is typed
-correctly, and links up. Surveys record each slot as `conformant`,
-`divergent`, `missing-link`, or `missing-item`.
+the map of what a survey looks for and what a later diff compares
+against; the survey itself only records what it finds per slot,
+including absence.
 
 | Slot | Found via | Expected target kind |
 |---|---|---|
@@ -264,6 +264,11 @@ Core properties and help:
 - [Help:Basic membership properties](https://www.wikidata.org/wiki/Help:Basic_membership_properties) — P31/P279/P361 semantics
 - [Help:Property constraints portal](https://www.wikidata.org/wiki/Help:Property_constraints_portal) — hints, not firm restrictions
 - [historical position (Q114962596)](https://www.wikidata.org/wiki/Q114962596)
+
+Country pages of these WikiProjects are unevenly maintained and their
+titles are not predictable from the country name: the snapshot index
+`wikiproject-pages.txt` (next to this file) lists which exist,
+including talk pages; regeneration recipe in its header.
 
 Evidence of unresolved practice (not guidance):
 

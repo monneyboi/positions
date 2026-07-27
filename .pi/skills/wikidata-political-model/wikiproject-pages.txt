@@ -1,0 +1,178 @@
+# WikiProject country pages on Wikidata — snapshot 2026-07-28
+# Regenerate: GET the MediaWiki API with action=query&list=search&srlimit=500
+# &format=json&srnamespace=<ns>&srsearch=intitle:/^<Project>\/[^\/]+$/ for
+# <Project>/<ns> = 'WikiProject every politician'/4 (pages), /5 (talk), and
+# 'WikiProject Heads of state and government'/4. Keep the title parts after
+# the last prefix slash.
+
+## WikiProject every politician/<Country>
+Anguilla
+Argentina
+Armenia
+Australia
+Austria
+Azerbaijan
+Bangladesh
+Belgium
+Belize
+Benin
+Bermuda
+Bolivia
+Brazil
+Bulgaria
+Cameroon
+Canada
+Catalonia
+Checklist for adding political data
+Chile
+Colombia
+Costa Rica
+Croatia
+Cyprus
+Czech Republic
+Czechoslovakia
+Democratic Republic of the Congo
+Denmark
+Dominica
+Egypt
+Electoral districts
+Estonia
+European Union
+Falkland Islands
+Finland
+France
+Gabon
+Germany
+Ghana
+Gibraltar
+Greece
+Hong Kong
+Hungary
+Iceland
+India
+Indonesia
+Ireland
+Israel
+Italy
+Japan
+Kenya
+Kiribati
+Kosovo
+Kyrgyzstan
+Latvia
+Liechtenstein
+List of National Legislatures
+Lithuania
+Luxembourg
+Macedonia
+Malawi
+Malaysia
+Malta
+Mexico
+Micronesia
+Moldova
+Monaco
+Mongolia
+Montenegro
+Morocco
+Namibia
+Nepal
+Netherlands
+New Zealand
+Nigeria
+Northern Cyprus
+Northern Ireland
+Norway
+P39 model
+Pakistan
+Paraguay
+Participants
+Peru
+Philippines
+Poland
+Political data model
+Portugal
+Report:Executive Bodies
+Romania
+Russia
+Rwanda
+Saint Kitts and Nevis
+Saint Lucia
+Samoa
+Scotland
+Serbia
+Singapore
+Slovakia
+Slovenia
+Solomon Islands
+South Africa
+South Korea
+Spain
+Sri Lanka
+Statistics
+Sweden
+Switzerland
+Syria
+Taiwan
+Tanzania
+Tonga
+Trinidad and Tobago
+Tunisia
+Turkey
+Tuvalu
+Uganda
+Ukraine
+United Kingdom
+United States of America
+Wales
+Zambia
+iran
+officeholder table end
+officeholder table row
+officeholder table start
+
+## Wikidata talk:WikiProject every politician/<Country>
+Belgium
+Catalonia
+Cyprus
+European Union
+Ghana
+Greece
+Hungary
+India
+Ireland
+Italy
+Latvia
+List of National Legislatures
+Malawi
+Political data model
+Spain
+Sweden
+United States of America
+
+## WikiProject Heads of state and government/<Country>
+Add data
+Contrast Report:Head of Government
+Data Model
+DocsTableEnd
+DocsTableRow
+DocsTableRowFullWidth
+DocsTableStart
+Explore data
+Female Heads of Government
+Fix data
+Germany
+Header
+Indonesia
+Longest Heads of Government
+Longest Heads of State
+Missions
+Newest Heads of Government
+Oldest Heads of Government
+Report:P1313
+Report:P1313 Fill Rate
+Report:P1906
+Report:P6
+United States
+What to do when a Head of Government changes
+Youngest Heads of Government

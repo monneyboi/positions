@@ -2,89 +2,95 @@
 description: Survey how a country's political system is modeled in Wikidata, into the research cache
 argument-hint: "<country QID>"
 ---
-You are doing **research only** for the `positions` project (a human-in-the-loop
-queue for improving political position items on Wikidata). Your job: map how the
-political positions of the country item **$1** are currently modeled in
-Wikidata. The results feed two consumers: the derivation of a general
-positions model across countries, and a per-country diff against that model
-that produces edit hypotheses. Do NOT edit Wikidata, do NOT run
-`positions queue`, do NOT touch any SQLite database, and do NOT write
-anything outside your output directory.
+Research how the political positions of the country **$1** are currently
+modeled in Wikidata, and how much of them there is. This is a
+descriptive census: record what exists, how it is typed and linked, and
+how many holders and statements it has. Do not judge conformity,
+diagnose gaps, or propose edits — later cross-country analysis does
+that; this survey is its fact base.
 
-Scope is the **positions side**: office items, the institutions they belong
-to, jurisdictions, lifecycle. Politicians and the quality of their P39
-statements are poliloom's domain — out of scope here, except as a
-diagnostic for which offices exist and how they are used.
+Scope is the positions side: office items (the values of P39), the
+institutions they belong to, their jurisdictions, their lifecycle.
+Politicians and their P39 statements are out of scope, except as
+evidence of which offices exist and how they are used.
 
-First read these two project skills completely — the model skill carries
-the **country spine** (the slots you are filling) and the known false
-positives; the querying skill carries the endpoint and query craft:
+First read these two project skills — the model skill is your map of
+the structures a country's political data typically consists of (what to
+look for, not a checklist to grade); the querying skill carries the
+endpoint and query craft:
 
-- .pi/skills/wikidata-querying/SKILL.md
 - .pi/skills/wikidata-political-model/SKILL.md
+- .pi/skills/wikidata-querying/SKILL.md
 
-Output directory: `cache/countries/<qid>/` where `<qid>` is $1 lowercased
-(e.g. Q183 → `cache/countries/q183/`). Create it fresh: if it already exists,
-remove its old contents first — this is a rebuild, not an append.
+Hard boundaries: no Wikidata edits, no `positions queue`, no SQLite
+databases, no writes outside the output directory (scratch work goes in
+`/tmp`, never in the project tree).
 
-## Method
+Output directory: `cache/countries/<qid>/` where `<qid>` is $1
+lowercased (e.g. Q183 → `cache/countries/q183/`). Rebuild it fresh:
+remove old contents first.
 
-Work through the country spine slot by slot: verify the country item itself,
-then its constitutional pointers (P194/P1313/P1906), the legislature and
-chambers, the membership offices, the head-of-state/government offices, the
-cabinet/government, and then other offices with significant holders tied to
-the country via P17/P1001. Subnational first level: aggregate only, never
-enumerate. Then check consistency across what you found: jurisdiction
-asymmetry (offices with P17 but no P1001 or vice versa), lifecycle coverage
-(P571/P576, succession chains, regime conflation), and P39 contamination
-(values that are disambiguation pages, organizations, terms, list articles,
-or cabinets rather than offices — each signals a missing or mis-modeled
-position item).
+## Sources
 
-As an input, not a source of truth: fetch
-`Wikidata:WikiProject_every_politician/<Country>` and
-`Wikidata:WikiProject_Heads_of_state_and_government/<Country>` if they
-exist. Harvest their named QIDs (head offices, legislature, membership
-items) as hypotheses, verify each against live state, and note staleness —
-the pages are unevenly maintained.
+Start from the country item itself: query its label and constitutional
+pointers (P1906/P1313/P194), and title the report with the verified
+label — never assume which country the QID is. Then follow the graph
+outward: legislature and chambers, membership offices,
+head-of-state/government offices, cabinet/government, courts and other
+offices with significant holders, first-level subnational offices in
+aggregate (never enumerate).
 
-Save every query as `NN-name.sparql` and its raw JSON response as
-`NN-name.json`, numbered in run order — these are the evidence cache. All
-counts are QLever mirror snapshots; say so. Inspect single interesting
-entities with the REST API when needed, but never bulk-download. Failed
-queries are documented in the README, not silently dropped.
+Fetch the country's WikiProject pages as leads — named QIDs are
+hypotheses to verify against the graph, never ground truth; the pages
+are unevenly maintained. Page titles are not predictable from the
+country name (the US page is `United States of America`, Iran's is
+lowercase `iran`), and most countries have no page at all — so look
+the country up in `.pi/skills/wikidata-political-model/wikiproject-pages.txt`,
+the snapshot index of all country pages, and fetch exactly what is listed there: the Every
+Politician page, its talk page if one is listed (`Wikidata_talk:...`
+— discussion is evidence of unresolved practice), and the Heads of
+state and government page if one is listed. A country absent from the
+index is a finding to note, not a title to probe for.
 
-## Deliverables
+Fetch each page with the MediaWiki API and save the raw JSON:
 
-**`spine.json`** — the machine-readable result, one entry per spine slot:
-
-```json
-{
-  "country": {"qid": "Q183", "label": "Germany"},
-  "slots": {
-    "headOfStateOffice": {"qid": "Q…", "status": "conformant"},
-    "legislature": {"qid": "Q…", "status": "divergent", "note": "…"},
-    "membershipOffice:Bundestag": {"qid": null, "status": "missing-item"}
-  }
-}
+```bash
+curl -sG 'https://www.wikidata.org/w/api.php' \
+  --data-urlencode action=parse \
+  --data-urlencode 'page=Wikidata:WikiProject_every_politician/<Country>' \
+  --data-urlencode prop=wikitext --data-urlencode format=json \
+  -o 00-wikiproject-every-politician.json
 ```
 
-Status vocabulary: `conformant` / `divergent` / `missing-link` /
-`missing-item`. Add slots beyond the skill's list when the country has
-them (subnational, courts); mark slots that don't constitutionally apply
-as `"status": "not-applicable"` with a note.
+## Evidence discipline
 
-**`README.md`** — the human-readable report:
+Save every query as `NN-name.sparql` and its raw JSON response as
+`NN-name.json`, numbered in run order; before writing the report, check
+that every `.sparql` has its `.json`. All counts are QLever mirror
+snapshots; say so in the report. The mirror is the evidence basis —
+profile specific items with `VALUES`-anchored SPARQL queries, not REST
+entity reads. Keep failed, empty, and rewritten queries in the numbered
+sequence — they are evidence too — but never save throttled or error
+response bodies as result files; record the failure in the query log.
 
-1. **Spine table** — the slots with QIDs and status (mirror of spine.json).
-2. **Divergences** — established national practice that deviates from the
-   general model, with evidence. A divergence is a finding to register,
-   not an error.
-3. **Anomalies and gaps** — each referencing the query file that surfaces
-   it.
-4. **Candidate edit opportunities** — 3–10, phrased as hypotheses for
-   human verification, never as verified proposals.
-5. **Surprises and failed queries** — including queries that returned
-   nothing or had to be rewritten, and why.
+## Deliverable
+
+`README.md` in the output directory — a factual report:
+
+1. **Overview** — headline numbers: offices found, total holders,
+   institutions covered.
+2. **Structure inventory** — what is actually modeled: constitutional
+   pointers, legislature and chambers, membership offices, head offices,
+   cabinet/government, courts, other significant offices, subnational
+   aggregate. QIDs, types, and links for each; where a typical structure
+   has no item, record the absence as an observation.
+3. **Coverage in numbers** — holder counts per office; how many offices
+   carry P17, P1001, both, or neither; lifecycle facts (P571/P576,
+   succession links) present or absent; P39 values that are not offices
+   (terms, cabinets, list articles, disambiguation pages), with counts.
+4. **Modeling patterns** — country-specific modeling choices you
+   observed, stated neutrally, each pointing at the query file that
+   shows it.
+5. **Query log** — failed, empty, and rewritten queries, and why.
 
 When done, report back a concise summary of your main findings.

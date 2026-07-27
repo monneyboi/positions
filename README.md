@@ -106,7 +106,9 @@ its GUID with statement-relative paths (`/rank`, `/value/content`,
 political systems are currently modeled on Wikidata, one directory per
 country QID (`cache/countries/q183/`). A survey is a set of numbered
 `.sparql`/`.json` query-result pairs plus a README of findings, produced
-by the prompt template `.pi/prompts/survey-country.md`.
+by the prompt template `.pi/prompts/survey-country.md`. Surveys consult
+`.pi/skills/wikidata-political-model/wikiproject-pages.txt`, a snapshot index of the WikiProject
+country pages (regeneration recipe in its header).
 
 Run one headless, fresh per country (takes the country QID as its only
 argument; rebuilds that country's directory from scratch):
