@@ -27,8 +27,14 @@ the order you run them. Work through this battery — adapt and extend when
 results look odd, and drill down with follow-up queries:
 
 1. **Baseline.** Verify the item: English label, all P31 values, P35 (head of
-   state), P6 (head of government). Use the verified label as the country name
-   throughout your README.
+   state), P6 (head of government). Then the country-side graph: P1906 (office
+   held by head of state), P1313 (office held by head of government), P194
+   (legislative body). Unlike P35/P6 — people, which churn and go stale — these
+   are the durable constitutional pointers and should land on *office* and
+   *legislature* items. Check the targets are the right kind of thing: P194
+   should name a legislature, not a government or cabinet; P1906/P1313 should
+   name position items (they may coincide in presidential systems). Use the
+   verified label as the country name throughout your README.
 2. **Institutions.** Legislatures, chambers, cabinets/governments, courts,
    ministries tied to the country via P17 or P1001. Anchor on exact classes or
    known QIDs. Do NOT run broad `P31/P279*` sweeps scoped only by P17/P1001 —
