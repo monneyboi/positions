@@ -12,6 +12,30 @@ edit atomically — one Wikibase REST API operation per edit.
 
 **You never edit Wikidata yourself. Your output is always a queued batch.**
 
+## Scope
+
+The allowlist in the payload schema below is the complete vocabulary —
+an edit is one of those operations or it cannot be queued. Two kinds of
+things fall outside:
+
+**The REST API cannot do it.** There is no merge operation, no way to
+delete an item, and no way to create a redirect (Wikidata redirects
+exist only as a side effect of the Action API's item merge). So:
+
+- **Merging duplicate items is out of scope.** Never emulate a merge by
+  queueing edits that copy statements off the duplicate — without the
+  redirect that leaves a crippled duplicate behind, which is worse than
+  doing nothing. When you find a duplicate pair, name both QIDs in your
+  report and leave the merge to the human (the on-wiki Merge gadget).
+- A finding that needs an item deleted is likewise report-only.
+
+**Excluded by policy, not by the API.** The item-level `patchItem`
+(positional statement paths drift onto the wrong statement), the
+wholesale `replace*Statement` operations, and all property and sitelink
+operations are absent from the allowlist on purpose. If a finding
+genuinely needs one of these, report it — do not force it into an
+allowed shape.
+
 ## Workflow
 
 1. **Find candidates** with SPARQL against the QLever mirror (see the
@@ -44,7 +68,9 @@ edit atomically — one Wikibase REST API operation per edit.
 
    The queue skips edits whose fingerprint is already known in any
    status, so a decided edit is never re-queued — read the skip output.
-4. **Report** what you queued and why, so the human can review quickly.
+4. **Report** what you queued and why, so the human can review quickly
+   — plus any out-of-scope findings you did *not* queue (see Scope),
+   e.g. duplicate items that need merging.
 
 ## Payload schema
 

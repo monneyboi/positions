@@ -61,6 +61,11 @@ src/positions/
   params matching their patterns, declared body fields. Payload discipline
   (deprecate-vs-remove, references on added statements, existence checks
   before creates) is agent guidance in the skills.
+- Merging items is out of scope: the REST API has no merge operation
+  (redirects are only created as a side effect of the Action API's
+  merge), and emulating one from statement edits would leave a crippled
+  duplicate with no redirect. Duplicate findings are reported to the
+  human, never queued.
 - There is no client-side pre-flight check before submission; the server's
   response decides the outcome. Edits address stable identities — item
   ids, statement GUIDs, language codes, never positional indices (the
